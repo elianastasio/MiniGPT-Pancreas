@@ -1,4 +1,4 @@
-name: minigptv
+name: minigptp
 channels:
   - pytorch
   - defaults
