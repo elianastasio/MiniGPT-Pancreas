@@ -33,3 +33,7 @@ dependencies:
     - scikit-image
     - visual-genome
     - wandb
+    #new
+    - nibabel
+    - skimage
+    - pydicom
