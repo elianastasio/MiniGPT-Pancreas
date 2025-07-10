@@ -1,5 +1,5 @@
 model:
-  arch: minigpt_v2
+  arch: minigptp
 
   # vit encoder
   image_size: 448

@@ -1,10 +1,3 @@
-"""
- Copyright (c) 2022, salesforce.com, inc.
- All rights reserved.
- SPDX-License-Identifier: BSD-3-Clause
- For full license text, see the LICENSE_Lavis file in the repo root or https://opensource.org/licenses/BSD-3-Clause
-"""
-
 import argparse
 import os
 import random
@@ -14,23 +7,23 @@ import torch
 import torch.backends.cudnn as cudnn
 import wandb
 
-import minigpt4.tasks as tasks
-from minigpt4.common.config import Config
-from minigpt4.common.dist_utils import get_rank, init_distributed_mode
-from minigpt4.common.logger import setup_logger
-from minigpt4.common.optims import (
+import minigptp.tasks as tasks
+from minigptp.common.config import Config
+from minigptp.common.dist_utils import get_rank, init_distributed_mode
+from minigptp.common.logger import setup_logger
+from minigptp.common.optims import (
     LinearWarmupCosineLRScheduler,
     LinearWarmupStepLRScheduler,
 )
-from minigpt4.common.registry import registry
-from minigpt4.common.utils import now
+from minigptp.common.registry import registry
+from minigptp.common.utils import now
 
 # imports modules for registration
-from minigpt4.datasets.builders import *
-from minigpt4.models import *
-from minigpt4.processors import *
-from minigpt4.runners import *
-from minigpt4.tasks import *
+from minigptp.datasets.builders import *
+from minigptp.models import *
+from minigptp.processors import *
+from minigptp.runners import *
+from minigptp.tasks import *
 
 
 def parse_args():
@@ -83,7 +76,7 @@ def main():
 
     # set after init_distributed_mode() to only log on master.
     setup_logger()
-    cfg.pretty_print()
+    #cfg.pretty_print()
 
     task = tasks.setup_task(cfg)
     datasets = task.build_datasets(cfg)
