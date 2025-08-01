@@ -20,7 +20,7 @@ conda activate minigptp
 
 **2. Prepare the pretrained LLM weights**
 
-**MiniGPT-Pancreas** is based on MiniGPT- v2, which is in turn based on Llama2 Chat 7B.
+**MiniGPT-Pancreas** is based on MiniGPT- v2, which is in turn based on Llama-2-7b-chat-hf.
 Download the LLM weights from the following huggingface space by cloning the repository using git-lfs.
 
 Llama 2 Chat 7B: [Download](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf/tree/main)

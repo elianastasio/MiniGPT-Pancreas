@@ -35,5 +35,4 @@ dependencies:
     - wandb
     #new
     - nibabel
-    - skimage
     - pydicom

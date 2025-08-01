@@ -1,7 +1,11 @@
-#checkpoints
-checkpoints/pancreas_detection/**
-checkpoints/tumor_classification/**
-checkpoints/tumor_detection/**
+# Checkpoints
+checkpoints/pancreas_detection/
+checkpoints/tumor_classification/
+checkpoints/tumor_detection/
+#Datasets
+datasets/MSD/
+datasets/TCIA/
+datasets/Abd1k/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
