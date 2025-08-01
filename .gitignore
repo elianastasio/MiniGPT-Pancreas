@@ -3,8 +3,12 @@ checkpoints/pancreas_detection/
 checkpoints/tumor_classification/
 checkpoints/tumor_detection/
 #Datasets
-datasets/MSD/
-datasets/TCIA/
+datasets/MSD/annotations/
+datasets/MSD/raw_dataset/
+datasets/MSD/slices/
+datasets/NIH/annotations/
+datasets/NIH/raw_dataset/
+datasets/NIH/slices/
 datasets/Abd1k/
 # Byte-compiled / optimized / DLL files
 __pycache__/
