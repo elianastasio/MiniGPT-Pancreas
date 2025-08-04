@@ -33,7 +33,10 @@ def get_bbox_area(bbox):
 def save_slices_data(data_dir):
     slices_info = []
     slice_id = 1
-    volume_files = [f for f in os.listdir(data_dir) if f.endswith('.nii.gz') and not f.startswith('.')]
+    volume_files = sorted(
+        f for f in os.listdir(data_dir) 
+        if f.endswith('.nii.gz') and not f.startswith('.')
+    )
     for volume_name in tqdm(volume_files, desc='Processing volumes'):
         seg_file_path = os.path.join(data_dir, volume_name)
         seg_image = nib.load(seg_file_path)
