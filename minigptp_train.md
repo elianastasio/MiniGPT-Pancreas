@@ -1,24 +1,18 @@
-## Finetune of MiniGPT-4
+## Finetune of MiniGPT-Pancreas
 
+You first need to prepare the datasets following [this guide](datasets/minigptp_datasets.md).
 
-You firstly need to prepare the dataset. you can follow this step to prepare the dataset.
-* MSD_Pancreas
-* NIH_Pancreas
-* AbdomenCT-1k
+# Pancreas Detection
 
-In the train_configs/minigptv2_finetune.yaml, you need to set up the following paths:
+In [configs/minigptp_finetune.yaml](train_configs/minigptp_finetune.yaml), you need to verify the following paths:
 
-llama_model checkpoint path: "/path/to/llama_checkpoint"
+llama_model checkpoint path: "Llama-2-7b-chat-hf"
 
-ckpt: "/path/to/pretrained_checkpoint"
+ckpt: "checkpoints/checkpoint_stage3.pth"
 
-ckpt save path: "/path/to/save_checkpoint"
-
-For ckpt, you may load from our pretrained model checkpoints:
-MiniGPT-v2 (after stage-3): [Download](https://drive.google.com/file/d/1HkoUUrjzFGn33cSiUkI-KcT-zysCynAz/view?usp=sharing)
-
+output_dir: "checkpoints/pancreas_detection"
 
 ```bash
-torchrun --nproc-per-node NUM_GPU train.py --cfg-path train_configs/minigptv2_finetune.yaml
+torchrun --nproc-per-node NUM_GPU train.py --cfg-path train_configs/minigptp_finetune.yaml
 ```
 

@@ -21,34 +21,35 @@ conda activate minigptp
 **2. Prepare the pretrained LLM weights**
 
 **MiniGPT-Pancreas** is based on MiniGPT- v2, which is in turn based on Llama-2-7b-chat-hf.
-Download the LLM weights from the following huggingface space by cloning the repository using git-lfs.
+Download the LLM weights from the following huggingface space by cloning the repository using git-lfs. As indicated on huggingface, when prompted for a password, you will need to provide an access token with write permissions.
 
 Llama 2 Chat 7B: [Download](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf/tree/main)
 
-Then, set the variable *llama_model* in the model config file to the LLM weight path.
-
-[here](minigptp/configs/models/minigptp.yaml#L15) at Line 14.
+```bash
+git lfs install
+git clone https://huggingface.co/meta-llama/Llama-2-7b-chat-hf
+```
+Then, set the variable *llama_model* in the model config file to the LLM weight path. [minigptp/configs/models/minigptp.yaml](minigptp/configs/models/minigptp.yaml#L14) at Line 14. It's set to 'Llama-2-7b-chat-hf' by default.
 
 **3. Prepare the pretrained model checkpoints**
 
-Download the base MiniGPT-v2 model checkpoint
+Download the base MiniGPT-v2 model checkpoint.
 
 MiniGPT-v2 (after stage-3): [Download](https://drive.google.com/file/d/1HkoUUrjzFGn33cSiUkI-KcT-zysCynAz/view?usp=sharing)
 
-Set the path to the pretrained checkpoint in the evaluation config file 
-in [eval_configs/minigptp_eval.yaml](eval_configs/minigptp_eval.yaml#L10) at Line 8.
+Set the path to the pretrained checkpoint in the evaluation config file [eval_configs/minigptp_eval.yaml](eval_configs/minigptp_eval.yaml#L8) at Line 8.
 
 ### Dataset Preparation
 
-For details on how to prepare the datasets used in this work, check [here](datasets/minigptp_datasets.md)
+For details on how to prepare the datasets used in this project, check [here](datasets/minigptp_datasets.md).
 
 ### Training
 
-For finetuning details of MiniGPT-Pancreas, check [here](scripts/minigptp_train.md)
+For finetuning details of MiniGPT-Pancreas, check [here](minigptp_train.md).
 
 
 ### Evaluation
-For evaluation details of MiniGPT-Pancreas, check [here](scripts/minigptp_eval.md)  
+For evaluation details of MiniGPT-Pancreas, check [here](minigptp_eval.md).
 
 ### Launching Demo Locally
 

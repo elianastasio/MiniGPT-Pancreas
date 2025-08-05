@@ -1,8 +1,0 @@
-datasets:
-  MSD_pancreas_ref:
-    data_type: images
-    build_info:
-      image_path: data/A3_datasets/MSD
-      ann_path: data/Scripts/A3/A3_TD_train.json #/jsons/A3_MSD_60_train.json
-      dataset: MSD_pancreas_ref
-      splitBy: unc

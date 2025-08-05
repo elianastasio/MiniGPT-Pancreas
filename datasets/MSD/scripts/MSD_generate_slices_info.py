@@ -115,7 +115,9 @@ def save_slices_data(data_dir):
             slice_id += 1
 
     # write slices_info to json
-    with open('../annotations/MSD_slices_info.json', 'w') as json_file:
+    output_path = '../annotations/MSD_slices_info.json'
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, 'w') as json_file:
         json.dump(slices_info, json_file, indent=4)
 
     print("Data collection complete")

@@ -9,11 +9,11 @@ from PIL import Image
 from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
-from minigptp.common.config import Config
-from minigptp.common.eval_utils import prepare_texts, init_model, eval_parser, computeIoU, computeDSC
-from minigptp.conversation.conversation import CONV_VISION_minigptv2
+from minigpt4.common.config import Config
+from minigpt4.common.eval_utils import prepare_texts, init_model, eval_parser, computeIoU, computeDSC
+from minigpt4.conversation.conversation import CONV_VISION_minigptv2
 
-from minigptp.datasets.datasets.coco_caption import RefMSDPancreasEvalData, RefnihPancreasEvalData, RefAbd1kPancreasEvalData, RefMSDTumorEvalData #RefCOCOEvalData, RefSlakeEvalData,#cancellati per errore
+from minigpt4.datasets.datasets.coco_caption import RefMSDPancreasEvalData, RefTCIAPancreasEvalData, RefAbd1kPancreasEvalData, RefMSDTumorEvalData #RefCOCOEvalData, RefSlakeEvalData,#cancellati per errore
 
 
 def list_of_str(arg):
@@ -30,7 +30,7 @@ cfg = Config(args)
 eval_dict = {'refcoco': ['val','testA','testB'], 
             'refcoco+': ['val','testA','testB'],
             'refcocog': ['val','test'],
-            'slake_ref': ['val']}
+            'slake_ref': ['val']}#elia
 
 
 model, vis_processor = init_model(args)
@@ -42,8 +42,9 @@ conv_temp.system = ""
 # 
 model.eval()
 save_path = cfg.run_cfg.save_path
-
-if 'Abd1k_ref' in args.dataset:
+#for dataset in args.dataset:
+    #print(dataset)
+if 'Abd1k_ref' in args.dataset:#ELIA: Abd1k
     Abd1k_ref = "Abd1k_ref"
     annotation_name = "Abd1k_pancreas_test_shortened.json"
     eval_file_path = cfg.evaluation_datasets_cfg[Abd1k_ref]["eval_file_path"]
@@ -56,7 +57,7 @@ if 'Abd1k_ref' in args.dataset:
 
     data = RefAbd1kPancreasEvalData(Abd1k_pancreas, vis_processor, img_path) #return image, question, img_id
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = defaultdict(list)
+    minigpt4_predict = defaultdict(list)
     resamples = []
     bad_answer_list = []
     bad_answers = 0
@@ -66,15 +67,17 @@ if 'Abd1k_ref' in args.dataset:
         #print(texts)
         answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
         for answer, q_id, question in zip(answers, q_ids, questions):
+            #print('Answer: ', answer)
             q_id_int = int(q_id)
             answer = answer.replace("<unk>","").replace(" ","").strip()
             pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
             if re.match(pattern, answer):
-                minigptp_predict[q_id_int].append(answer)
+                minigpt4_predict[q_id_int].append(answer)
             else:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
-                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
+            #print("Elia (q_id = ", q_id,")", minigpt4_predict[q_id][-1])#elia   
     if args.resample:
         for i in range(20):
             data = RefAbd1kPancreasEvalData(resamples, vis_processor, img_path)
@@ -88,28 +91,31 @@ if 'Abd1k_ref' in args.dataset:
                     answer = answer.replace("<unk>","").replace(" ","").strip()
                     pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
                     if re.match(pattern, answer) or i == 4:
-                        minigptp_predict[q_id_int].append(answer)
+                        minigpt4_predict[q_id_int].append(answer)
                     else:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
             if len(resamples) == 0:
                 break
     file_save_path = os.path.join(save_path,f"Abd1k_pancreas_49.json")
     with open(file_save_path,'w') as f:
-        json.dump(minigptp_predict, f)
+        json.dump(minigpt4_predict, f)
 
     count=0
     total_iou_score = 0
     total_dsc_score = 0
     total=len(Abd1k_pancreas)
     res=args.res
+    #print("Elia res: ", res) #res = 100.0
     Abd1k_pancreas_dict = defaultdict()
     for item in Abd1k_pancreas:
         Abd1k_pancreas_dict[item['q_id']] = item
     for q_id in Abd1k_pancreas_dict:
+        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
         item = Abd1k_pancreas_dict[q_id]
 
+        #print("Keys present in 'item' dictionary:", item.keys())#elia
         bbox = item['bbox']
-        outputs = minigptp_predict[q_id]
+        outputs = minigpt4_predict[q_id]
         for output in outputs:
             try:
                 integers = re.findall(r'\d+', output)
@@ -137,8 +143,13 @@ if 'Abd1k_ref' in args.dataset:
                 continue
     print("Abd1k")
     print(f'Total: {count / total * 100:.2f}, Average IOU Score: {total_iou_score / total * 100:.2f}, Average DSC Score: {total_dsc_score / total * 100:.2f}, Bad Answers: {bad_answers}, Bad Answer List: {bad_answer_list}', flush=True)
+    #print(f'Results:', count / total * 100, flush=True)
+    #print(f'Average iou score:', total_iou_score / total * 100)
+    #print(f'Average dsc score:', total_dsc_score / total * 100)
+    #print(f'Bad answers: ', bad_answers)
+    #print(bad_answer_list)
 
-if 'Abd1k_ref_liver' in args.dataset:
+if 'Abd1k_ref_liver' in args.dataset:#ELIA: Abd1k
     Abd1k_ref = "Abd1k_ref"
     annotation_name = "Abd1k_test_balanced_2_liver.json"
     eval_file_path = cfg.evaluation_datasets_cfg[Abd1k_ref]["eval_file_path"]
@@ -151,24 +162,27 @@ if 'Abd1k_ref_liver' in args.dataset:
 
     data = RefAbd1kPancreasEvalData(Abd1k_pancreas, vis_processor, img_path) #return image, question, img_id
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = defaultdict(list)
+    minigpt4_predict = defaultdict(list)
     resamples = []
     bad_answer_list = []
     bad_answers = 0
 
     for images, questions, q_ids in tqdm(eval_dataloader):
         texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        #print(texts)
         answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
         for answer, q_id, question in zip(answers, q_ids, questions):
+            #print('Answer: ', answer)
             q_id_int = int(q_id)
             answer = answer.replace("<unk>","").replace(" ","").strip()
             pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
             if re.match(pattern, answer):
-                minigptp_predict[q_id_int].append(answer)
+                minigpt4_predict[q_id_int].append(answer)
             else:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
-                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})   
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
+            #print("Elia (q_id = ", q_id,")", minigpt4_predict[q_id][-1])#elia   
     if args.resample:
         for i in range(20):
             data = RefAbd1kPancreasEvalData(resamples, vis_processor, img_path)
@@ -182,26 +196,31 @@ if 'Abd1k_ref_liver' in args.dataset:
                     answer = answer.replace("<unk>","").replace(" ","").strip()
                     pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
                     if re.match(pattern, answer) or i == 4:
-                        minigptp_predict[q_id_int].append(answer)
+                        minigpt4_predict[q_id_int].append(answer)
                     else:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
             if len(resamples) == 0:
                 break
     file_save_path = os.path.join(save_path,f"Abd1k_evaluation.json")
+    #with open(file_save_path,'w') as f:
+    #    json.dump(minigpt4_predict, f)
 
     count=0
     total_iou_score = 0
     total_dsc_score = 0
     total=len(Abd1k_pancreas)
     res=args.res
+    #print("Elia res: ", res) #res = 100.0
     Abd1k_pancreas_dict = defaultdict()
     for item in Abd1k_pancreas:
         Abd1k_pancreas_dict[item['q_id']] = item
     for q_id in Abd1k_pancreas_dict:
+        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
         item = Abd1k_pancreas_dict[q_id]
 
+        #print("Keys present in 'item' dictionary:", item.keys())#elia
         bbox = item['bbox']
-        outputs = minigptp_predict[q_id]
+        outputs = minigpt4_predict[q_id]
         for output in outputs:
             try:
                 integers = re.findall(r'\d+', output)
@@ -227,10 +246,15 @@ if 'Abd1k_ref_liver' in args.dataset:
                 total_dsc_score += dsc_score
             except:
                 continue
+    #print("Abd1k")
     print(f'Liver: {count / total * 100:.2f}, Average IOU Score: {total_iou_score / total * 100:.2f}, Average DSC Score: {total_dsc_score / total * 100:.2f}, Bad Answers: {bad_answers}, Bad Answer List: {bad_answer_list}', flush=True)
+    #print(f'Results:', count / total * 100, flush=True)
+    #print(f'Average iou score:', total_iou_score / total * 100)
+    #print(f'Average dsc score:', total_dsc_score / total * 100)
+    #print(f'Bad answers: ', bad_answers)
+    #print(bad_answer_list)
 
-
-if 'Abd1k_ref_right_kidney' in args.dataset:
+if 'Abd1k_ref_right_kidney' in args.dataset:#ELIA: Abd1k
     Abd1k_ref = "Abd1k_ref"
     annotation_name = "Abd1k_test_balanced_2_right_kidney.json"
     eval_file_path = cfg.evaluation_datasets_cfg[Abd1k_ref]["eval_file_path"]
@@ -243,24 +267,27 @@ if 'Abd1k_ref_right_kidney' in args.dataset:
 
     data = RefAbd1kPancreasEvalData(Abd1k_pancreas, vis_processor, img_path) #return image, question, img_id
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = defaultdict(list)
+    minigpt4_predict = defaultdict(list)
     resamples = []
     bad_answer_list = []
     bad_answers = 0
 
     for images, questions, q_ids in tqdm(eval_dataloader):
         texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        #print(texts)
         answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
         for answer, q_id, question in zip(answers, q_ids, questions):
+            #print('Answer: ', answer)
             q_id_int = int(q_id)
             answer = answer.replace("<unk>","").replace(" ","").strip()
             pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
             if re.match(pattern, answer):
-                minigptp_predict[q_id_int].append(answer)
+                minigpt4_predict[q_id_int].append(answer)
             else:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
-                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})  
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
+            #print("Elia (q_id = ", q_id,")", minigpt4_predict[q_id][-1])#elia   
     if args.resample:
         for i in range(20):
             data = RefAbd1kPancreasEvalData(resamples, vis_processor, img_path)
@@ -274,25 +301,31 @@ if 'Abd1k_ref_right_kidney' in args.dataset:
                     answer = answer.replace("<unk>","").replace(" ","").strip()
                     pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
                     if re.match(pattern, answer) or i == 4:
-                        minigptp_predict[q_id_int].append(answer)
+                        minigpt4_predict[q_id_int].append(answer)
                     else:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
             if len(resamples) == 0:
                 break
     file_save_path = os.path.join(save_path,f"Abd1k_evaluation.json")
+    #with open(file_save_path,'w') as f:
+    #    json.dump(minigpt4_predict, f)
 
     count=0
     total_iou_score = 0
     total_dsc_score = 0
     total=len(Abd1k_pancreas)
     res=args.res
+    #print("Elia res: ", res) #res = 100.0
     Abd1k_pancreas_dict = defaultdict()
     for item in Abd1k_pancreas:
         Abd1k_pancreas_dict[item['q_id']] = item
     for q_id in Abd1k_pancreas_dict:
+        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
         item = Abd1k_pancreas_dict[q_id]
+
+        #print("Keys present in 'item' dictionary:", item.keys())#elia
         bbox = item['bbox']
-        outputs = minigptp_predict[q_id]
+        outputs = minigpt4_predict[q_id]
         for output in outputs:
             try:
                 integers = re.findall(r'\d+', output)
@@ -318,9 +351,15 @@ if 'Abd1k_ref_right_kidney' in args.dataset:
                 total_dsc_score += dsc_score
             except:
                 continue
+    #print("Abd1k")
     print(f'Right Kidney: {count / total * 100:.2f}, Average IOU Score: {total_iou_score / total * 100:.2f}, Average DSC Score: {total_dsc_score / total * 100:.2f}, Bad Answers: {bad_answers}, Bad Answer List: {bad_answer_list}', flush=True)
+    #print(f'Results:', count / total * 100, flush=True)
+    #print(f'Average iou score:', total_iou_score / total * 100)
+    #print(f'Average dsc score:', total_dsc_score / total * 100)
+    #print(f'Bad answers: ', bad_answers)
+    #print(bad_answer_list)
 
-if 'Abd1k_ref_spleen' in args.dataset:
+if 'Abd1k_ref_spleen' in args.dataset:#ELIA: Abd1k
     Abd1k_ref = "Abd1k_ref"
     annotation_name = "Abd1k_test_balanced_2_spleen.json"
     eval_file_path = cfg.evaluation_datasets_cfg[Abd1k_ref]["eval_file_path"]
@@ -333,24 +372,27 @@ if 'Abd1k_ref_spleen' in args.dataset:
 
     data = RefAbd1kPancreasEvalData(Abd1k_pancreas, vis_processor, img_path) #return image, question, img_id
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = defaultdict(list)
+    minigpt4_predict = defaultdict(list)
     resamples = []
     bad_answer_list = []
     bad_answers = 0
 
     for images, questions, q_ids in tqdm(eval_dataloader):
         texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        #print(texts)
         answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
         for answer, q_id, question in zip(answers, q_ids, questions):
+            #print('Answer: ', answer)
             q_id_int = int(q_id)
             answer = answer.replace("<unk>","").replace(" ","").strip()
             pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
             if re.match(pattern, answer):
-                minigptp_predict[q_id_int].append(answer)
+                minigpt4_predict[q_id_int].append(answer)
             else:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
-                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})   
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
+            #print("Elia (q_id = ", q_id,")", minigpt4_predict[q_id][-1])#elia   
     if args.resample:
         for i in range(20):
             data = RefAbd1kPancreasEvalData(resamples, vis_processor, img_path)
@@ -364,26 +406,31 @@ if 'Abd1k_ref_spleen' in args.dataset:
                     answer = answer.replace("<unk>","").replace(" ","").strip()
                     pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
                     if re.match(pattern, answer) or i == 4:
-                        minigptp_predict[q_id_int].append(answer)
+                        minigpt4_predict[q_id_int].append(answer)
                     else:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
             if len(resamples) == 0:
                 break
     file_save_path = os.path.join(save_path,f"Abd1k_evaluation.json")
+    #with open(file_save_path,'w') as f:
+    #    json.dump(minigpt4_predict, f)
 
     count=0
     total_iou_score = 0
     total_dsc_score = 0
     total=len(Abd1k_pancreas)
     res=args.res
+    #print("Elia res: ", res) #res = 100.0
     Abd1k_pancreas_dict = defaultdict()
     for item in Abd1k_pancreas:
         Abd1k_pancreas_dict[item['q_id']] = item
     for q_id in Abd1k_pancreas_dict:
+        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
         item = Abd1k_pancreas_dict[q_id]
 
+        #print("Keys present in 'item' dictionary:", item.keys())#elia
         bbox = item['bbox']
-        outputs = minigptp_predict[q_id]
+        outputs = minigpt4_predict[q_id]
         for output in outputs:
             try:
                 integers = re.findall(r'\d+', output)
@@ -409,9 +456,15 @@ if 'Abd1k_ref_spleen' in args.dataset:
                 total_dsc_score += dsc_score
             except:
                 continue
+    #print("Abd1k")
     print(f'Spleen: {count / total * 100:.2f}, Average IOU Score: {total_iou_score / total * 100:.2f}, Average DSC Score: {total_dsc_score / total * 100:.2f}, Bad Answers: {bad_answers}, Bad Answer List: {bad_answer_list}', flush=True)
+    #print(f'Results:', count / total * 100, flush=True)
+    #print(f'Average iou score:', total_iou_score / total * 100)
+    #print(f'Average dsc score:', total_dsc_score / total * 100)
+    #print(f'Bad answers: ', bad_answers)
+    #print(bad_answer_list)
 
-if 'Abd1k_ref_pancreas' in args.dataset:
+if 'Abd1k_ref_pancreas' in args.dataset:#ELIA: Abd1k
     Abd1k_ref = "Abd1k_ref"
     annotation_name = "Abd1k_test_balanced_2_pancreas.json"
     eval_file_path = cfg.evaluation_datasets_cfg[Abd1k_ref]["eval_file_path"]
@@ -424,7 +477,7 @@ if 'Abd1k_ref_pancreas' in args.dataset:
 
     data = RefAbd1kPancreasEvalData(Abd1k_pancreas, vis_processor, img_path) #return image, question, img_id
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = defaultdict(list)
+    minigpt4_predict = defaultdict(list)
     resamples = []
     bad_answer_list = []
     bad_answers = 0
@@ -434,15 +487,17 @@ if 'Abd1k_ref_pancreas' in args.dataset:
         #print(texts)
         answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
         for answer, q_id, question in zip(answers, q_ids, questions):
+            #print('Answer: ', answer)
             q_id_int = int(q_id)
             answer = answer.replace("<unk>","").replace(" ","").strip()
             pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
             if re.match(pattern, answer):
-                minigptp_predict[q_id_int].append(answer)
+                minigpt4_predict[q_id_int].append(answer)
             else:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
                 resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
+            #print("Elia (q_id = ", q_id,")", minigpt4_predict[q_id][-1])#elia   
     if args.resample:
         for i in range(20):
             data = RefAbd1kPancreasEvalData(resamples, vis_processor, img_path)
@@ -456,25 +511,31 @@ if 'Abd1k_ref_pancreas' in args.dataset:
                     answer = answer.replace("<unk>","").replace(" ","").strip()
                     pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
                     if re.match(pattern, answer) or i == 4:
-                        minigptp_predict[q_id_int].append(answer)
+                        minigpt4_predict[q_id_int].append(answer)
                     else:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
             if len(resamples) == 0:
                 break
     file_save_path = os.path.join(save_path,f"Abd1k_evaluation.json")
+    #with open(file_save_path,'w') as f:
+    #    json.dump(minigpt4_predict, f)
 
     count=0
     total_iou_score = 0
     total_dsc_score = 0
     total=len(Abd1k_pancreas)
     res=args.res
+    #print("Elia res: ", res) #res = 100.0
     Abd1k_pancreas_dict = defaultdict()
     for item in Abd1k_pancreas:
         Abd1k_pancreas_dict[item['q_id']] = item
     for q_id in Abd1k_pancreas_dict:
+        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
         item = Abd1k_pancreas_dict[q_id]
+
+        #print("Keys present in 'item' dictionary:", item.keys())#elia
         bbox = item['bbox']
-        outputs = minigptp_predict[q_id]
+        outputs = minigpt4_predict[q_id]
         for output in outputs:
             try:
                 integers = re.findall(r'\d+', output)
@@ -500,10 +561,15 @@ if 'Abd1k_ref_pancreas' in args.dataset:
                 total_dsc_score += dsc_score
             except:
                 continue
+    #print("Abd1k")
     print(f'Pancreas: {count / total * 100:.2f}, Average IOU Score: {total_iou_score / total * 100:.2f}, Average DSC Score: {total_dsc_score / total * 100:.2f}, Bad Answers: {bad_answers}, Bad Answer List: {bad_answer_list}', flush=True)
+    #print(f'Results:', count / total * 100, flush=True)
+    #print(f'Average iou score:', total_iou_score / total * 100)
+    #print(f'Average dsc score:', total_dsc_score / total * 100)
+    #print(f'Bad answers: ', bad_answers)
+    #print(bad_answer_list)
 
-
-if 'MSD_pancreas_ref' in args.dataset:
+if 'MSD_pancreas_ref' in args.dataset: #ELIA: MSD_pancreas_ref
     MSD_pancreas_ref = "MSD_pancreas_ref"
     annotation_name = "A3_MSD_60_test.json"
     eval_file_path = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["eval_file_path"]
@@ -516,24 +582,27 @@ if 'MSD_pancreas_ref' in args.dataset:
 
     data = RefMSDPancreasEvalData(MSD_pancreas, vis_processor, img_path) #return image, question, img_id
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = defaultdict(list)
+    minigpt4_predict = defaultdict(list)
     resamples = []
     bad_answer_list = []
     bad_answers = 0
 
     for images, questions, q_ids in tqdm(eval_dataloader):
         texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        #print(texts)
         answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
         for answer, q_id, question in zip(answers, q_ids, questions):
+            #print('Answer: ', answer)
             q_id_int = int(q_id)
             answer = answer.replace("<unk>","").replace(" ","").strip()
             pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
             if re.match(pattern, answer):
-                minigptp_predict[q_id_int].append(answer)
+                minigpt4_predict[q_id_int].append(answer)
             else:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
-                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]}) 
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]})
+            #print("Elia (q_id = ", q_id,")", minigpt4_predict[q_id][-1])#elia   
     if args.resample:
         for i in range(20):
             data = RefMSDPancreasEvalData(resamples, vis_processor, img_path)
@@ -547,28 +616,31 @@ if 'MSD_pancreas_ref' in args.dataset:
                     answer = answer.replace("<unk>","").replace(" ","").strip()
                     pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
                     if re.match(pattern, answer) or i == 4:
-                        minigptp_predict[q_id_int].append(answer)
+                        minigpt4_predict[q_id_int].append(answer)
                     else:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
             if len(resamples) == 0:
                 break
     file_save_path = os.path.join(save_path,f"A3_MSD.json")
     with open(file_save_path,'w') as f:
-        json.dump(minigptp_predict, f)
+        json.dump(minigpt4_predict, f)
 
     count=0
     total_iou_score = 0
     total_dsc_score = 0
     total=len(MSD_pancreas)
     res=args.res
+    #print("Elia res: ", res) #res = 100.0
     MSD_pancreas_dict = defaultdict()
     for item in MSD_pancreas:
         MSD_pancreas_dict[item['q_id']] = item
     for q_id in MSD_pancreas_dict:
+        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
         item = MSD_pancreas_dict[q_id]
 
+        #print("Keys present in 'item' dictionary:", item.keys())#elia
         bbox = item['bbox_pancreas']
-        outputs = minigptp_predict[q_id]
+        outputs = minigpt4_predict[q_id]
         for output in outputs:
             try:
                 integers = re.findall(r'\d+', output)
@@ -604,41 +676,50 @@ if 'MSD_pancreas_ref' in args.dataset:
     log_file_path = "../results/A3/A3_results.txt"
     with open(log_file_path, "a") as log_file:
         log_file.write(result_str)
+    #print("MSD")
+    #print(f'Results:', count / total * 100, flush=True)
+    #print(f'Average iou score:', total_iou_score / total * 100)
+    #print(f'Average dsc score:', total_dsc_score / total * 100)
+    #print(f'Bad answers: ', bad_answers)
+    #print(bad_answer_list)
 
-if 'nih_pancreas_ref' in args.dataset:
-    nih_pancreas_ref = "nih_pancreas_ref"
-    annotation_name = "A3_nih_60_test.json"
-    eval_file_path = cfg.evaluation_datasets_cfg[nih_pancreas_ref]["eval_file_path"]
-    img_path = cfg.evaluation_datasets_cfg[nih_pancreas_ref]["img_path"]
-    batch_size = cfg.evaluation_datasets_cfg[nih_pancreas_ref]["batch_size"]
-    max_new_tokens = cfg.evaluation_datasets_cfg[nih_pancreas_ref]["max_new_tokens"]
+if 'TCIA_pancreas_ref' in args.dataset: #ELIA: TCIA
+    TCIA_pancreas_ref = "TCIA_pancreas_ref"
+    annotation_name = "A3_TCIA_60_test.json"
+    eval_file_path = cfg.evaluation_datasets_cfg[TCIA_pancreas_ref]["eval_file_path"]
+    img_path = cfg.evaluation_datasets_cfg[TCIA_pancreas_ref]["img_path"]
+    batch_size = cfg.evaluation_datasets_cfg[TCIA_pancreas_ref]["batch_size"]
+    max_new_tokens = cfg.evaluation_datasets_cfg[TCIA_pancreas_ref]["max_new_tokens"]
 
     with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
-        nih_pancreas = json.load(f)
+        TCIA_pancreas = json.load(f)
 
-    data = RefnihPancreasEvalData(nih_pancreas, vis_processor, img_path) #return image, question, img_id
+    data = RefTCIAPancreasEvalData(TCIA_pancreas, vis_processor, img_path) #return image, question, img_id
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = defaultdict(list)
+    minigpt4_predict = defaultdict(list)
     resamples = []
     bad_answer_list = []
     bad_answers = 0
 
     for images, questions, q_ids in tqdm(eval_dataloader):
         texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        #print(texts)
         answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
         for answer, q_id, question in zip(answers, q_ids, questions):
+            #print('Answer: ', answer)
             q_id_int = int(q_id)
             answer = answer.replace("<unk>","").replace(" ","").strip()
             pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
             if re.match(pattern, answer):
-                minigptp_predict[q_id_int].append(answer)
+                minigpt4_predict[q_id_int].append(answer)
             else:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
-                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})   
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
+            #print("Elia (q_id = ", q_id,")", minigpt4_predict[q_id][-1])#elia   
     if args.resample:
         for i in range(20):
-            data = RefnihPancreasEvalData(resamples, vis_processor, img_path)
+            data = RefTCIAPancreasEvalData(resamples, vis_processor, img_path)
             resamples = []
             eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
             for images, questions, q_ids in tqdm(eval_dataloader):
@@ -649,28 +730,31 @@ if 'nih_pancreas_ref' in args.dataset:
                     answer = answer.replace("<unk>","").replace(" ","").strip()
                     pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
                     if re.match(pattern, answer) or i == 4:
-                        minigptp_predict[q_id_int].append(answer)
+                        minigpt4_predict[q_id_int].append(answer)
                     else:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
             if len(resamples) == 0:
                 break
-    file_save_path = os.path.join(save_path,f"A3_nih.json.json")
+    file_save_path = os.path.join(save_path,f"A3_TCIA.json.json")
     with open(file_save_path,'w') as f:
-        json.dump(minigptp_predict, f)
+        json.dump(minigpt4_predict, f)
 
     count=0
     total_iou_score = 0
     total_dsc_score = 0
-    total=len(nih_pancreas)
+    total=len(TCIA_pancreas)
     res=args.res
-    nih_pancreas_dict = defaultdict()
-    for item in nih_pancreas:
-        nih_pancreas_dict[item['q_id']] = item
-    for q_id in nih_pancreas_dict:
-        item = nih_pancreas_dict[q_id]
+    #print("Elia res: ", res) #res = 100.0
+    TCIA_pancreas_dict = defaultdict()
+    for item in TCIA_pancreas:
+        TCIA_pancreas_dict[item['q_id']] = item
+    for q_id in TCIA_pancreas_dict:
+        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
+        item = TCIA_pancreas_dict[q_id]
 
+        #print("Keys present in 'item' dictionary:", item.keys())#elia
         bbox = item['bbox_pancreas']
-        outputs = minigptp_predict[q_id]
+        outputs = minigpt4_predict[q_id]
         for output in outputs:
             try:
                 integers = re.findall(r'\d+', output)
@@ -696,7 +780,7 @@ if 'nih_pancreas_ref' in args.dataset:
                 total_dsc_score += dsc_score
             except:
                 continue
-    result_str = f"""nih
+    result_str = f"""TCIA
     Results: {count / total * 100:.2f}%
     Average iou score: {total_iou_score / total * 100:.2f}
     Bad answers: {bad_answers}
@@ -706,7 +790,14 @@ if 'nih_pancreas_ref' in args.dataset:
     log_file_path = "../results/A3/A3_results.txt"
     with open(log_file_path, "a") as log_file:
         log_file.write(result_str)
+    #print("TCIA")
+    #print(f'Results:', count / total * 100, flush=True)
+    #print(f'Average iou score:', total_iou_score / total * 100)
+    ##print(f'Average dsc score:', total_dsc_score / total * 100)
+    #print(f'Bad answers: ', bad_answers)
+    #print(bad_answer_list)
 
+if 'slake_ref' in args.dataset:#elia: slake_ref
     slake_ref = "slake_ref"
     annotation_name = "slake_ref_radiology_test.json"
     eval_file_path = cfg.evaluation_datasets_cfg[slake_ref]["eval_file_path"]
@@ -715,11 +806,12 @@ if 'nih_pancreas_ref' in args.dataset:
     max_new_tokens = cfg.evaluation_datasets_cfg[slake_ref]["max_new_tokens"]
 
     with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
+    #with open(eval_file_path, 'r') as f:
         refcoco = json.load(f)
 
     data = RefSlakeEvalData(refcoco, vis_processor, img_path) #return image, question, img_id
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = defaultdict(list)
+    minigpt4_predict = defaultdict(list)
     resamples = []
 
     for images, questions, img_ids in tqdm(eval_dataloader):
@@ -729,7 +821,7 @@ if 'nih_pancreas_ref' in args.dataset:
             answer = answer.replace("<unk>","").replace(" ","").strip()
             pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
             if re.match(pattern, answer):
-                minigptp_predict[img_id].append(answer)
+                minigpt4_predict[img_id].append(answer)
             else:
                 resamples.append({'img_id': img_id, 'sents': [question.replace('[refer] give me the location of','').strip()]})
     if args.resample:
@@ -744,7 +836,7 @@ if 'nih_pancreas_ref' in args.dataset:
                     answer = answer.replace("<unk>","").replace(" ","").strip()
                     pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
                     if re.match(pattern, answer) or i == 4:
-                        minigptp_predict[img_id].append(answer)
+                        minigpt4_predict[img_id].append(answer)
                     else:
                         resamples.append({'img_id': img_id, 'sents': [question.replace('[refer] give me the location of','').strip()]})
                         
@@ -753,7 +845,7 @@ if 'nih_pancreas_ref' in args.dataset:
 
     file_save_path = os.path.join(save_path,f"slake_ref_results.json")
     with open(file_save_path,'w') as f:
-        json.dump(minigptp_predict, f)
+        json.dump(minigpt4_predict, f)
 
     count=0
     total=len(refcoco)
@@ -762,9 +854,11 @@ if 'nih_pancreas_ref' in args.dataset:
     for item in refcoco:
         refcoco_dict[item['img_id']] = item
     for img_id in refcoco_dict:
+        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
         item = refcoco_dict[img_id]
+        #print("Keys present in 'item' dictionary:", item.keys())#elia
         bbox = item['bbox']
-        outputs = minigptp_predict[img_id]
+        outputs = minigpt4_predict[img_id]
         for output in outputs:
             try:
                 integers = re.findall(r'\d+', output)
@@ -790,7 +884,7 @@ if 'nih_pancreas_ref' in args.dataset:
 
     print(f'Results:', count / total * 100, flush=True)
 
-if 'A3_TD' in args.dataset:
+if 'A3_TD' in args.dataset:  # ELIA: MSD_pancreas_ref
     MSD_pancreas_ref = "TD"
     annotation_name = "A3_TD_test.json"
     eval_file_path = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["eval_file_path"]
@@ -803,7 +897,7 @@ if 'A3_TD' in args.dataset:
 
     data = RefMSDTumorEvalData(MSD_pancreas, vis_processor, img_path)  # return image, question, img_id
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = defaultdict(list)
+    minigpt4_predict = defaultdict(list)
     resamples = []
     bad_answer_list = []
     bad_answers = 0
@@ -818,7 +912,7 @@ if 'A3_TD' in args.dataset:
             pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
             
             if re.match(pattern, answer):
-                minigptp_predict[q_id_int].append(answer)
+                minigpt4_predict[q_id_int].append(answer)
             else:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
@@ -839,7 +933,7 @@ if 'A3_TD' in args.dataset:
                     answer = answer.replace("<unk>", "").replace(" ", "").strip()
                     
                     if re.match(pattern, answer) or i == 4:
-                        minigptp_predict[q_id_int].append(answer)
+                        minigpt4_predict[q_id_int].append(answer)
                     else:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the', '').strip()]})
             
@@ -848,7 +942,7 @@ if 'A3_TD' in args.dataset:
 
     file_save_path = os.path.join(save_path, f"A3_TD_1.json")
     with open(file_save_path, 'w') as f:
-        json.dump(minigptp_predict, f)
+        json.dump(minigpt4_predict, f)
 
     count = 0
     total_iou_score = 0
@@ -866,7 +960,7 @@ if 'A3_TD' in args.dataset:
     for q_id in MSD_pancreas_dict:
         item = MSD_pancreas_dict[q_id]
         bbox = item['bbox_tumor']
-        outputs = minigptp_predict[q_id]
+        outputs = minigpt4_predict[q_id]
         
         for output in outputs:
             try:

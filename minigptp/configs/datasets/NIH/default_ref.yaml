@@ -1,8 +1,0 @@
-datasets:
-  TCIA_pancreas_ref:
-    data_type: images
-    build_info:
-      image_path: data/A3_datasets/NIH
-      ann_path: data/Scripts/A3/jsons/A3_NIH_60_train.json
-      dataset: NIH_pancreas_ref
-      splitBy: unc

@@ -11,13 +11,13 @@ import torch
 from torch.utils.data import DataLoader
 
 
-from minigptp.datasets.datasets.vqa_datasets import TCEvalData,VQARADEvalData,OKVQAEvalData,VizWizEvalData,IconQAEvalData,GQAEvalData,VSREvalData,HMEvalData
-from minigptp.common.vqa_tools.VQA.PythonHelperTools.vqaTools.vqa import VQA
-from minigptp.common.vqa_tools.VQA.PythonEvaluationTools.vqaEvaluation.vqaEval import VQAEval
+from minigpt4.datasets.datasets.vqa_datasets import TCEvalData,VQARADEvalData,OKVQAEvalData,VizWizEvalData,IconQAEvalData,GQAEvalData,VSREvalData,HMEvalData
+from minigpt4.common.vqa_tools.VQA.PythonHelperTools.vqaTools.vqa import VQA
+from minigpt4.common.vqa_tools.VQA.PythonEvaluationTools.vqaEvaluation.vqaEval import VQAEval
 
-from minigptp.common.eval_utils import prepare_texts, init_model, eval_parser
-from minigptp.conversation.conversation import CONV_VISION_minigptv2
-from minigptp.common.config import Config
+from minigpt4.common.eval_utils import prepare_texts, init_model, eval_parser
+from minigpt4.conversation.conversation import CONV_VISION_minigptv2
+from minigpt4.common.config import Config
 
 
 def list_of_str(arg):

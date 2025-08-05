@@ -1,0 +1,8 @@
+datasets:
+  slake_ref:
+    data_type: images
+    build_info:
+      image_path: cache/MINIGPTv2_DATASET/slake/images/train
+      ann_path: cache/MINIGPTv2_DATASET/slake/images/slake_ref_radiology_train.json
+      dataset: slake_ref
+      splitBy: unc

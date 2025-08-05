@@ -1,15 +1,12 @@
 model:
-  arch: minigptp
+  arch: minigpt_v2
   model_type: pretrain
   max_txt_len: 500
   end_sym: "</s>"
   low_resource: False
   prompt_template: '[INST] {} [/INST]'
   llama_model: "../Llama-2-7b-chat-hf"
-  ckpt:  "please set this to the checkpoint to evaluate"
-  #ckpt:  "../checkpoints/A3_TC/checkpoint_49.pth"
-  #ckpt:  "../checkpoints/A3_MSD&TCIA_60_total/checkpoint_21.pth"
-  #ckpt:  "../checkpoints/checkpoint_stage3.pth"
+  ckpt:  "../checkpoints/checkpoint_stage3.pth"
   lora_r: 64
   lora_alpha: 16
 
@@ -25,29 +22,14 @@ datasets:
         name: "blip_caption"
 
 evaluation_datasets:
-  tc_msd_and_nih:
-    eval_file_path: data/Scripts/A3
-    img_path: data/A3_datasets
-    max_new_tokens: 20
-    batch_size: 40
-  abd1k_ref:
-      eval_file_path: data/Abd1k/Annotations
-      img_path: data/Abd1k/Abd1k_pancreas_test
-      max_new_tokens: 20
-      batch_size: 40
   msd_pancreas_ref:
-    eval_file_path: data/Scripts/A3/jsons
-    img_path: data/A3_datasets/MSD
+    eval_file_path: ../datasets/MSD/annotations
+    img_path: ../datasets/MSD/slices
     max_new_tokens: 20
     batch_size: 40
   nih_pancreas_ref:
-    eval_file_path: data/Scripts/A3/jsons
-    img_path: data/A3_datasets/TCIA #../cache/MINIGPTv2_DATASET/TCIA_pancreas/images 
-    max_new_tokens: 20
-    batch_size: 40
-  td_msd:
-    eval_file_path: data/Scripts/A3
-    img_path: data/A3_datasets/MSD
+    eval_file_path: ../datasets/NIH/annotations 
+    img_path: ../datasets/NIH/slices
     max_new_tokens: 20
     batch_size: 40
 

@@ -1,8 +1,0 @@
-datasets:
-  TD_MSD:
-    data_type: images
-    build_info:
-      image_path: data/A3_datasets/MSD
-      ann_path: data/Scripts/A3/A3_TD_train.json
-      dataset: TD_MSD
-      splitBy: unc

@@ -15,17 +15,17 @@ import gradio as gr
 import torchvision.transforms as T
 import torch.backends.cudnn as cudnn
 
-from minigptp.common.config import Config
+from minigpt4.common.config import Config
 
-from minigptp.common.registry import registry
-from minigptp.conversation.conversation import Conversation, SeparatorStyle, Chat
+from minigpt4.common.registry import registry
+from minigpt4.conversation.conversation import Conversation, SeparatorStyle, Chat
 
 # imports modules for registration
-from minigptp.datasets.builders import *
-from minigptp.models import *
-from minigptp.processors import *
-from minigptp.runners import *
-from minigptp.tasks import *
+from minigpt4.datasets.builders import *
+from minigpt4.models import *
+from minigpt4.processors import *
+from minigpt4.runners import *
+from minigpt4.tasks import *
 
 
 def parse_args():
