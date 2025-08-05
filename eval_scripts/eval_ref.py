@@ -12,13 +12,16 @@ from torch.utils.data import DataLoader
 from minigpt4.common.config import Config
 from minigpt4.common.eval_utils import prepare_texts, init_model, eval_parser, computeIoU, computeDSC
 from minigpt4.conversation.conversation import CONV_VISION_minigptv2
-
-from minigpt4.datasets.datasets.coco_caption import RefMSDPancreasEvalData, RefTCIAPancreasEvalData, RefAbd1kPancreasEvalData, RefMSDTumorEvalData #RefCOCOEvalData, RefSlakeEvalData,#cancellati per errore
-
+#from minigpt4.datasets.datasets.coco_caption import RefAbd1kPancreasEvalData, RefMSDTumorEvalData
+from minigpt4.datasets.datasets.MSD_dataset import RefMSDPancreasEvalData
+from minigpt4.datasets.datasets.TCIA_dataset import RefTCIAPancreasEvalData
+from evaluate_predictions import evaluate
+from datetime import datetime
 
 def list_of_str(arg):
     return list(map(str, arg.split(',')))
 
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 parser = eval_parser()
 parser.add_argument("--dataset", type=list_of_str, default='refcoco', help="dataset to evaluate")
 parser.add_argument("--res", type=float, default=100.0, help="resolution used in refcoco")
@@ -26,13 +29,11 @@ parser.add_argument("--resample", action='store_true', help="resolution used in 
 args = parser.parse_args()
 
 cfg = Config(args)
-
+'''
 eval_dict = {'refcoco': ['val','testA','testB'], 
             'refcoco+': ['val','testA','testB'],
-            'refcocog': ['val','test'],
-            'slake_ref': ['val']}#elia
-
-
+            'refcocog': ['val','test']}
+'''
 model, vis_processor = init_model(args)
 model.eval()
 CONV_VISION = CONV_VISION_minigptv2
@@ -42,8 +43,281 @@ conv_temp.system = ""
 # 
 model.eval()
 save_path = cfg.run_cfg.save_path
-#for dataset in args.dataset:
-    #print(dataset)
+
+if 'MSD_pancreas_detection' in args.dataset:
+    MSD_pancreas_detection = "MSD_pancreas_detection"
+    annotation_name = "MSD_test.json"
+    eval_file_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["eval_file_path"]
+    img_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["img_path"]
+    batch_size = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["batch_size"]
+    max_new_tokens = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["max_new_tokens"]
+    checkpoint = cfg.model_cfg["ckpt"]
+    if checkpoint.startswith("../"):
+        checkpoint = checkpoint[3:]
+    
+    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
+        MSD_pancreas = json.load(f)
+
+    data = RefMSDPancreasEvalData(MSD_pancreas, vis_processor, img_path) #return image, question, img_id
+    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+    minigpt4_predict = defaultdict(list)
+    resamples = []
+    bad_answer_list = []
+    bad_answers = 0
+
+    for images, questions, q_ids in tqdm(eval_dataloader):
+        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+        for answer, q_id, question in zip(answers, q_ids, questions):
+            q_id_int = int(q_id)
+            answer = answer.replace("<unk>","").replace(" ","").strip()
+            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+            if re.match(pattern, answer):
+                minigpt4_predict[q_id_int].append(answer)
+            else:
+                bad_answers += 1
+                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]}) 
+    if args.resample:
+        for i in range(20):
+            data = RefMSDPancreasEvalData(resamples, vis_processor, img_path)
+            resamples = []
+            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+            for images, questions, q_ids in tqdm(eval_dataloader):
+                texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+                for answer, q_id, question in zip(answers, q_ids, questions):
+                    q_id_int = int(q_id)
+                    answer = answer.replace("<unk>","").replace(" ","").strip()
+                    pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+                    if re.match(pattern, answer) or i == 4:
+                        minigpt4_predict[q_id_int].append(answer)
+                    else:
+                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
+            if len(resamples) == 0:
+                break
+    file_save_path = os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.json")
+    os.makedirs(os.path.join(save_path, "pancreas_detection"), exist_ok=True)
+    with open(file_save_path,'w') as f:
+        json.dump(minigpt4_predict, f)
+    
+    evaluate(
+        gt_file=os.path.join(eval_file_path, annotation_name),
+        pred_file=file_save_path,
+        task_name="Pancreas detection",
+        dataset_name="MSD_Pancreas",
+        checkpoint=checkpoint,
+        log_save_path=os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.log")
+    )
+
+if 'NIH_pancreas_detection' in args.dataset:
+    NIH_pancreas_detection = "NIH_pancreas_detection"
+    annotation_name = "NIH_test.json"
+    eval_file_path = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["eval_file_path"]
+    img_path = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["img_path"]
+    batch_size = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["batch_size"]
+    max_new_tokens = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["max_new_tokens"]
+    checkpoint = cfg.model_cfg["ckpt"][3:]
+    
+    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
+        TCIA_pancreas = json.load(f)
+
+    data = RefTCIAPancreasEvalData(TCIA_pancreas, vis_processor, img_path) #return image, question, img_id
+    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+    minigpt4_predict = defaultdict(list)
+    resamples = []
+    bad_answer_list = []
+    bad_answers = 0
+
+    for images, questions, q_ids in tqdm(eval_dataloader):
+        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+        for answer, q_id, question in zip(answers, q_ids, questions):
+            q_id_int = int(q_id)
+            answer = answer.replace("<unk>","").replace(" ","").strip()
+            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+            if re.match(pattern, answer):
+                minigpt4_predict[q_id_int].append(answer)
+            else:
+                bad_answers += 1
+                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
+    if args.resample:
+        for i in range(20):
+            data = RefTCIAPancreasEvalData(resamples, vis_processor, img_path)
+            resamples = []
+            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+            for images, questions, q_ids in tqdm(eval_dataloader):
+                texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+                for answer, q_id, question in zip(answers, q_ids, questions):
+                    q_id_int = int(q_id)
+                    answer = answer.replace("<unk>","").replace(" ","").strip()
+                    pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+                    if re.match(pattern, answer) or i == 4:
+                        minigpt4_predict[q_id_int].append(answer)
+                    else:
+                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
+            if len(resamples) == 0:
+                break
+    file_save_path = os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.json")
+    os.makedirs(os.path.join(save_path, "pancreas_detection"), exist_ok=True)
+    with open(file_save_path,'w') as f:
+        json.dump(minigpt4_predict, f)
+
+    evaluate(
+        gt_file=os.path.join(eval_file_path, annotation_name),
+        pred_file=file_save_path,
+        task_name="Pancreas detection",
+        dataset_name="NIH_Pancreas",
+        checkpoint=checkpoint,
+        log_save_path=os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.log")
+    )
+
+    
+'''
+if 'A3_TD' in args.dataset:
+    MSD_pancreas_detection = "TD"
+    annotation_name = "A3_TD_test.json"
+    eval_file_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["eval_file_path"]
+    img_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["img_path"]
+    batch_size = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["batch_size"]
+    max_new_tokens = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["max_new_tokens"]
+
+    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
+        MSD_pancreas = json.load(f)
+
+    data = RefMSDTumorEvalData(MSD_pancreas, vis_processor, img_path)  # return image, question, img_id
+    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+    minigpt4_predict = defaultdict(list)
+    resamples = []
+    bad_answer_list = []
+    bad_answers = 0
+
+    for images, questions, q_ids in tqdm(eval_dataloader):
+        texts = prepare_texts(questions, conv_temp)  # wrap the texts with conversation template
+        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+        
+        for answer, q_id, question in zip(answers, q_ids, questions):
+            q_id_int = int(q_id)
+            answer = answer.replace("<unk>", "").replace(" ", "").strip()
+            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+            
+            if re.match(pattern, answer):
+                minigpt4_predict[q_id_int].append(answer)
+            else:
+                bad_answers += 1
+                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the', '').strip()]})
+
+    if args.resample:
+        for i in range(20):
+            data = RefMSDTumorEvalData(resamples, vis_processor, img_path)
+            resamples = []
+            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+            
+            for images, questions, q_ids in tqdm(eval_dataloader):
+                texts = prepare_texts(questions, conv_temp)  # wrap the texts with conversation template
+                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+                
+                for answer, q_id, question in zip(answers, q_ids, questions):
+                    q_id_int = int(q_id)
+                    answer = answer.replace("<unk>", "").replace(" ", "").strip()
+                    
+                    if re.match(pattern, answer) or i == 4:
+                        minigpt4_predict[q_id_int].append(answer)
+                    else:
+                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the', '').strip()]})
+            
+            if len(resamples) == 0:
+                break
+
+    file_save_path = os.path.join(save_path, f"A3_TD_1.json")
+    with open(file_save_path, 'w') as f:
+        json.dump(minigpt4_predict, f)
+
+    count = 0
+    total_iou_score = 0
+    total_dsc_score = 0
+    total = len(MSD_pancreas)
+    res = args.res
+    MSD_pancreas_dict = defaultdict()
+    
+    # New variables to track satisfactory predictions
+    satisfactory_predictions_count = 0
+
+    for item in MSD_pancreas:
+        MSD_pancreas_dict[item['q_id']] = item
+    
+    for q_id in MSD_pancreas_dict:
+        item = MSD_pancreas_dict[q_id]
+        bbox = item['bbox_tumor']
+        outputs = minigpt4_predict[q_id]
+        
+        for output in outputs:
+            try:
+                integers = re.findall(r'\d+', output)
+                pred_bbox = [int(num) for num in integers]
+                height = item['height']
+                width = item['width']
+                pred_bbox[0] = pred_bbox[0] / res * width
+                pred_bbox[1] = pred_bbox[1] / res * height
+                pred_bbox[2] = pred_bbox[2] / res * width
+                pred_bbox[3] = pred_bbox[3] / res * height
+
+                gt_bbox = [0, 0, 0, 0]
+                gt_bbox[0] = bbox[0]
+                gt_bbox[1] = bbox[1]
+                gt_bbox[2] = bbox[2]
+                gt_bbox[3] = bbox[3]
+
+                # Calculate the IoU and DSC scores
+                iou_score = computeIoU(pred_bbox, gt_bbox)
+                dsc_score = computeDSC(pred_bbox, gt_bbox)
+
+                # Calculate area of prediction and GT
+                pred_area = (pred_bbox[2] - pred_bbox[0]) * (pred_bbox[3] - pred_bbox[1])
+                gt_area = (gt_bbox[2] - gt_bbox[0]) * (gt_bbox[3] - gt_bbox[1])
+
+                # Calculate the intersection area for coverage
+                x_overlap = max(0, min(pred_bbox[2], gt_bbox[2]) - max(pred_bbox[0], gt_bbox[0]))
+                y_overlap = max(0, min(pred_bbox[3], gt_bbox[3]) - max(pred_bbox[1], gt_bbox[1]))
+                intersection_area = x_overlap * y_overlap
+
+                # Check constraints
+                covers_50_percent_gt = (intersection_area / gt_area) >= 0.5
+                pred_area_not_more_than_double = pred_area <= 3 * gt_area
+
+                # Update satisfactory predictions count
+                if covers_50_percent_gt and pred_area_not_more_than_double:
+                    satisfactory_predictions_count += 1
+
+                if iou_score > 0.5:
+                    count += 1
+                
+                total_iou_score += iou_score
+                total_dsc_score += dsc_score
+            
+            except Exception as e:
+                # Print or log the exception if necessary
+                print(f"An error occurred: {e}")
+                continue
+
+    # Calculate percentage of satisfactory predictions
+    satisfactory_predictions_percentage = satisfactory_predictions_count / total * 100
+
+    result_str = f"""MSD
+    Results: {count / total * 100:.2f}%
+    Average iou score: {total_iou_score / total * 100:.2f}
+    Bad answers: {bad_answers}
+    Bad answer list: {bad_answer_list}
+    Satisfactory Predictions: {satisfactory_predictions_percentage:.2f}%
+    """
+    print(result_str)
+    log_file_path = "../results/A3/A3_results.txt"
+    with open(log_file_path, "a") as log_file:
+        log_file.write(result_str)
+
 if 'Abd1k_ref' in args.dataset:#ELIA: Abd1k
     Abd1k_ref = "Abd1k_ref"
     annotation_name = "Abd1k_pancreas_test_shortened.json"
@@ -569,459 +843,4 @@ if 'Abd1k_ref_pancreas' in args.dataset:#ELIA: Abd1k
     #print(f'Bad answers: ', bad_answers)
     #print(bad_answer_list)
 
-if 'MSD_pancreas_ref' in args.dataset: #ELIA: MSD_pancreas_ref
-    MSD_pancreas_ref = "MSD_pancreas_ref"
-    annotation_name = "A3_MSD_60_test.json"
-    eval_file_path = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["eval_file_path"]
-    img_path = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["img_path"]
-    batch_size = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["batch_size"]
-    max_new_tokens = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["max_new_tokens"]
-
-    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
-        MSD_pancreas = json.load(f)
-
-    data = RefMSDPancreasEvalData(MSD_pancreas, vis_processor, img_path) #return image, question, img_id
-    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigpt4_predict = defaultdict(list)
-    resamples = []
-    bad_answer_list = []
-    bad_answers = 0
-
-    for images, questions, q_ids in tqdm(eval_dataloader):
-        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-        #print(texts)
-        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-        for answer, q_id, question in zip(answers, q_ids, questions):
-            #print('Answer: ', answer)
-            q_id_int = int(q_id)
-            answer = answer.replace("<unk>","").replace(" ","").strip()
-            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-            if re.match(pattern, answer):
-                minigpt4_predict[q_id_int].append(answer)
-            else:
-                bad_answers += 1
-                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
-                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]})
-            #print("Elia (q_id = ", q_id,")", minigpt4_predict[q_id][-1])#elia   
-    if args.resample:
-        for i in range(20):
-            data = RefMSDPancreasEvalData(resamples, vis_processor, img_path)
-            resamples = []
-            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-            for images, questions, q_ids in tqdm(eval_dataloader):
-                texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-                for answer, q_id, question in zip(answers, q_ids, questions):
-                    q_id_int = int(q_id)
-                    answer = answer.replace("<unk>","").replace(" ","").strip()
-                    pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-                    if re.match(pattern, answer) or i == 4:
-                        minigpt4_predict[q_id_int].append(answer)
-                    else:
-                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
-            if len(resamples) == 0:
-                break
-    file_save_path = os.path.join(save_path,f"A3_MSD.json")
-    with open(file_save_path,'w') as f:
-        json.dump(minigpt4_predict, f)
-
-    count=0
-    total_iou_score = 0
-    total_dsc_score = 0
-    total=len(MSD_pancreas)
-    res=args.res
-    #print("Elia res: ", res) #res = 100.0
-    MSD_pancreas_dict = defaultdict()
-    for item in MSD_pancreas:
-        MSD_pancreas_dict[item['q_id']] = item
-    for q_id in MSD_pancreas_dict:
-        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
-        item = MSD_pancreas_dict[q_id]
-
-        #print("Keys present in 'item' dictionary:", item.keys())#elia
-        bbox = item['bbox_pancreas']
-        outputs = minigpt4_predict[q_id]
-        for output in outputs:
-            try:
-                integers = re.findall(r'\d+', output)
-                pred_bbox = [int(num) for num in integers]
-                height = item['height']
-                width = item['width']
-                pred_bbox[0] = pred_bbox[0] / res * width
-                pred_bbox[1] = pred_bbox[1] / res * height
-                pred_bbox[2] = pred_bbox[2] / res * width
-                pred_bbox[3] = pred_bbox[3] / res * height
-
-                gt_bbox = [0,0,0,0]
-                gt_bbox[0] = bbox[0]
-                gt_bbox[1] = bbox[1]
-                gt_bbox[2] = bbox[2]
-                gt_bbox[3] = bbox[3]
-
-                iou_score = computeIoU(pred_bbox, gt_bbox)
-                dsc_score = computeDSC(pred_bbox, gt_bbox)
-                if iou_score > 0.5:
-                    count+=1
-                total_iou_score += iou_score
-                total_dsc_score += dsc_score
-            except:
-                continue
-    result_str = f"""MSD
-    Results: {count / total * 100:.2f}%
-    Average iou score: {total_iou_score / total * 100:.2f}
-    Bad answers: {bad_answers}
-    Bad answer list: {bad_answer_list}
-    """
-    print(result_str)
-    log_file_path = "../results/A3/A3_results.txt"
-    with open(log_file_path, "a") as log_file:
-        log_file.write(result_str)
-    #print("MSD")
-    #print(f'Results:', count / total * 100, flush=True)
-    #print(f'Average iou score:', total_iou_score / total * 100)
-    #print(f'Average dsc score:', total_dsc_score / total * 100)
-    #print(f'Bad answers: ', bad_answers)
-    #print(bad_answer_list)
-
-if 'TCIA_pancreas_ref' in args.dataset: #ELIA: TCIA
-    TCIA_pancreas_ref = "TCIA_pancreas_ref"
-    annotation_name = "A3_TCIA_60_test.json"
-    eval_file_path = cfg.evaluation_datasets_cfg[TCIA_pancreas_ref]["eval_file_path"]
-    img_path = cfg.evaluation_datasets_cfg[TCIA_pancreas_ref]["img_path"]
-    batch_size = cfg.evaluation_datasets_cfg[TCIA_pancreas_ref]["batch_size"]
-    max_new_tokens = cfg.evaluation_datasets_cfg[TCIA_pancreas_ref]["max_new_tokens"]
-
-    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
-        TCIA_pancreas = json.load(f)
-
-    data = RefTCIAPancreasEvalData(TCIA_pancreas, vis_processor, img_path) #return image, question, img_id
-    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigpt4_predict = defaultdict(list)
-    resamples = []
-    bad_answer_list = []
-    bad_answers = 0
-
-    for images, questions, q_ids in tqdm(eval_dataloader):
-        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-        #print(texts)
-        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-        for answer, q_id, question in zip(answers, q_ids, questions):
-            #print('Answer: ', answer)
-            q_id_int = int(q_id)
-            answer = answer.replace("<unk>","").replace(" ","").strip()
-            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-            if re.match(pattern, answer):
-                minigpt4_predict[q_id_int].append(answer)
-            else:
-                bad_answers += 1
-                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
-                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
-            #print("Elia (q_id = ", q_id,")", minigpt4_predict[q_id][-1])#elia   
-    if args.resample:
-        for i in range(20):
-            data = RefTCIAPancreasEvalData(resamples, vis_processor, img_path)
-            resamples = []
-            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-            for images, questions, q_ids in tqdm(eval_dataloader):
-                texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-                for answer, q_id, question in zip(answers, q_ids, questions):
-                    q_id_int = int(q_id)
-                    answer = answer.replace("<unk>","").replace(" ","").strip()
-                    pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-                    if re.match(pattern, answer) or i == 4:
-                        minigpt4_predict[q_id_int].append(answer)
-                    else:
-                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
-            if len(resamples) == 0:
-                break
-    file_save_path = os.path.join(save_path,f"A3_TCIA.json.json")
-    with open(file_save_path,'w') as f:
-        json.dump(minigpt4_predict, f)
-
-    count=0
-    total_iou_score = 0
-    total_dsc_score = 0
-    total=len(TCIA_pancreas)
-    res=args.res
-    #print("Elia res: ", res) #res = 100.0
-    TCIA_pancreas_dict = defaultdict()
-    for item in TCIA_pancreas:
-        TCIA_pancreas_dict[item['q_id']] = item
-    for q_id in TCIA_pancreas_dict:
-        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
-        item = TCIA_pancreas_dict[q_id]
-
-        #print("Keys present in 'item' dictionary:", item.keys())#elia
-        bbox = item['bbox_pancreas']
-        outputs = minigpt4_predict[q_id]
-        for output in outputs:
-            try:
-                integers = re.findall(r'\d+', output)
-                pred_bbox = [int(num) for num in integers]
-                height = item['height']
-                width = item['width']
-                pred_bbox[0] = pred_bbox[0] / res * width
-                pred_bbox[1] = pred_bbox[1] / res * height
-                pred_bbox[2] = pred_bbox[2] / res * width
-                pred_bbox[3] = pred_bbox[3] / res * height
-
-                gt_bbox = [0,0,0,0]
-                gt_bbox[0] = bbox[0]
-                gt_bbox[1] = bbox[1]
-                gt_bbox[2] = bbox[2]
-                gt_bbox[3] = bbox[3]
-
-                iou_score = computeIoU(pred_bbox, gt_bbox)
-                dsc_score = computeDSC(pred_bbox, gt_bbox)
-                if iou_score > 0.5:
-                    count+=1
-                total_iou_score += iou_score
-                total_dsc_score += dsc_score
-            except:
-                continue
-    result_str = f"""TCIA
-    Results: {count / total * 100:.2f}%
-    Average iou score: {total_iou_score / total * 100:.2f}
-    Bad answers: {bad_answers}
-    Bad answer list: {bad_answer_list}
-    """
-    print(result_str)
-    log_file_path = "../results/A3/A3_results.txt"
-    with open(log_file_path, "a") as log_file:
-        log_file.write(result_str)
-    #print("TCIA")
-    #print(f'Results:', count / total * 100, flush=True)
-    #print(f'Average iou score:', total_iou_score / total * 100)
-    ##print(f'Average dsc score:', total_dsc_score / total * 100)
-    #print(f'Bad answers: ', bad_answers)
-    #print(bad_answer_list)
-
-if 'slake_ref' in args.dataset:#elia: slake_ref
-    slake_ref = "slake_ref"
-    annotation_name = "slake_ref_radiology_test.json"
-    eval_file_path = cfg.evaluation_datasets_cfg[slake_ref]["eval_file_path"]
-    img_path = cfg.evaluation_datasets_cfg[slake_ref]["img_path"]
-    batch_size = cfg.evaluation_datasets_cfg[slake_ref]["batch_size"]
-    max_new_tokens = cfg.evaluation_datasets_cfg[slake_ref]["max_new_tokens"]
-
-    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
-    #with open(eval_file_path, 'r') as f:
-        refcoco = json.load(f)
-
-    data = RefSlakeEvalData(refcoco, vis_processor, img_path) #return image, question, img_id
-    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigpt4_predict = defaultdict(list)
-    resamples = []
-
-    for images, questions, img_ids in tqdm(eval_dataloader):
-        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-        for answer, img_id, question in zip(answers, img_ids, questions):
-            answer = answer.replace("<unk>","").replace(" ","").strip()
-            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-            if re.match(pattern, answer):
-                minigpt4_predict[img_id].append(answer)
-            else:
-                resamples.append({'img_id': img_id, 'sents': [question.replace('[refer] give me the location of','').strip()]})
-    if args.resample:
-        for i in range(20):
-            data = RefSlakeEvalData(resamples, vis_processor, img_path)
-            resamples = []
-            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-            for images, questions, img_ids in tqdm(eval_dataloader):
-                texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-                for answer, img_id, question in zip(answers, img_ids, questions):
-                    answer = answer.replace("<unk>","").replace(" ","").strip()
-                    pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-                    if re.match(pattern, answer) or i == 4:
-                        minigpt4_predict[img_id].append(answer)
-                    else:
-                        resamples.append({'img_id': img_id, 'sents': [question.replace('[refer] give me the location of','').strip()]})
-                        
-            if len(resamples) == 0:
-                break
-
-    file_save_path = os.path.join(save_path,f"slake_ref_results.json")
-    with open(file_save_path,'w') as f:
-        json.dump(minigpt4_predict, f)
-
-    count=0
-    total=len(refcoco)
-    res=args.res
-    refcoco_dict = defaultdict()
-    for item in refcoco:
-        refcoco_dict[item['img_id']] = item
-    for img_id in refcoco_dict:
-        #print("Keys present in 'refcoco_dict' dictionary:", refcoco_dict.keys())#elia
-        item = refcoco_dict[img_id]
-        #print("Keys present in 'item' dictionary:", item.keys())#elia
-        bbox = item['bbox']
-        outputs = minigpt4_predict[img_id]
-        for output in outputs:
-            try:
-                integers = re.findall(r'\d+', output)
-                pred_bbox = [int(num) for num in integers]
-                height = item['height']
-                width = item['width']
-                pred_bbox[0] = pred_bbox[0] / res * width
-                pred_bbox[1] = pred_bbox[1] / res * height
-                pred_bbox[2] = pred_bbox[2] / res * width
-                pred_bbox[3] = pred_bbox[3] / res * height
-
-                gt_bbox = [0,0,0,0]
-                gt_bbox[0] = bbox[0]
-                gt_bbox[1] = bbox[1]
-                gt_bbox[2] = bbox[0] + bbox[2]
-                gt_bbox[3] = bbox[1] + bbox[3]
-
-                iou_score = computeIoU(pred_bbox, gt_bbox)
-                if iou_score > 0.5:
-                    count+=1
-            except:
-                continue
-
-    print(f'Results:', count / total * 100, flush=True)
-
-if 'A3_TD' in args.dataset:  # ELIA: MSD_pancreas_ref
-    MSD_pancreas_ref = "TD"
-    annotation_name = "A3_TD_test.json"
-    eval_file_path = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["eval_file_path"]
-    img_path = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["img_path"]
-    batch_size = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["batch_size"]
-    max_new_tokens = cfg.evaluation_datasets_cfg[MSD_pancreas_ref]["max_new_tokens"]
-
-    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
-        MSD_pancreas = json.load(f)
-
-    data = RefMSDTumorEvalData(MSD_pancreas, vis_processor, img_path)  # return image, question, img_id
-    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigpt4_predict = defaultdict(list)
-    resamples = []
-    bad_answer_list = []
-    bad_answers = 0
-
-    for images, questions, q_ids in tqdm(eval_dataloader):
-        texts = prepare_texts(questions, conv_temp)  # wrap the texts with conversation template
-        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-        
-        for answer, q_id, question in zip(answers, q_ids, questions):
-            q_id_int = int(q_id)
-            answer = answer.replace("<unk>", "").replace(" ", "").strip()
-            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-            
-            if re.match(pattern, answer):
-                minigpt4_predict[q_id_int].append(answer)
-            else:
-                bad_answers += 1
-                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
-                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the', '').strip()]})
-
-    if args.resample:
-        for i in range(20):
-            data = RefMSDTumorEvalData(resamples, vis_processor, img_path)
-            resamples = []
-            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-            
-            for images, questions, q_ids in tqdm(eval_dataloader):
-                texts = prepare_texts(questions, conv_temp)  # wrap the texts with conversation template
-                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-                
-                for answer, q_id, question in zip(answers, q_ids, questions):
-                    q_id_int = int(q_id)
-                    answer = answer.replace("<unk>", "").replace(" ", "").strip()
-                    
-                    if re.match(pattern, answer) or i == 4:
-                        minigpt4_predict[q_id_int].append(answer)
-                    else:
-                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the', '').strip()]})
-            
-            if len(resamples) == 0:
-                break
-
-    file_save_path = os.path.join(save_path, f"A3_TD_1.json")
-    with open(file_save_path, 'w') as f:
-        json.dump(minigpt4_predict, f)
-
-    count = 0
-    total_iou_score = 0
-    total_dsc_score = 0
-    total = len(MSD_pancreas)
-    res = args.res
-    MSD_pancreas_dict = defaultdict()
-    
-    # New variables to track satisfactory predictions
-    satisfactory_predictions_count = 0
-
-    for item in MSD_pancreas:
-        MSD_pancreas_dict[item['q_id']] = item
-    
-    for q_id in MSD_pancreas_dict:
-        item = MSD_pancreas_dict[q_id]
-        bbox = item['bbox_tumor']
-        outputs = minigpt4_predict[q_id]
-        
-        for output in outputs:
-            try:
-                integers = re.findall(r'\d+', output)
-                pred_bbox = [int(num) for num in integers]
-                height = item['height']
-                width = item['width']
-                pred_bbox[0] = pred_bbox[0] / res * width
-                pred_bbox[1] = pred_bbox[1] / res * height
-                pred_bbox[2] = pred_bbox[2] / res * width
-                pred_bbox[3] = pred_bbox[3] / res * height
-
-                gt_bbox = [0, 0, 0, 0]
-                gt_bbox[0] = bbox[0]
-                gt_bbox[1] = bbox[1]
-                gt_bbox[2] = bbox[2]
-                gt_bbox[3] = bbox[3]
-
-                # Calculate the IoU and DSC scores
-                iou_score = computeIoU(pred_bbox, gt_bbox)
-                dsc_score = computeDSC(pred_bbox, gt_bbox)
-
-                # Calculate area of prediction and GT
-                pred_area = (pred_bbox[2] - pred_bbox[0]) * (pred_bbox[3] - pred_bbox[1])
-                gt_area = (gt_bbox[2] - gt_bbox[0]) * (gt_bbox[3] - gt_bbox[1])
-
-                # Calculate the intersection area for coverage
-                x_overlap = max(0, min(pred_bbox[2], gt_bbox[2]) - max(pred_bbox[0], gt_bbox[0]))
-                y_overlap = max(0, min(pred_bbox[3], gt_bbox[3]) - max(pred_bbox[1], gt_bbox[1]))
-                intersection_area = x_overlap * y_overlap
-
-                # Check constraints
-                covers_50_percent_gt = (intersection_area / gt_area) >= 0.5
-                pred_area_not_more_than_double = pred_area <= 3 * gt_area
-
-                # Update satisfactory predictions count
-                if covers_50_percent_gt and pred_area_not_more_than_double:
-                    satisfactory_predictions_count += 1
-
-                if iou_score > 0.5:
-                    count += 1
-                
-                total_iou_score += iou_score
-                total_dsc_score += dsc_score
-            
-            except Exception as e:
-                # Print or log the exception if necessary
-                print(f"An error occurred: {e}")
-                continue
-
-    # Calculate percentage of satisfactory predictions
-    satisfactory_predictions_percentage = satisfactory_predictions_count / total * 100
-
-    result_str = f"""MSD
-    Results: {count / total * 100:.2f}%
-    Average iou score: {total_iou_score / total * 100:.2f}
-    Bad answers: {bad_answers}
-    Bad answer list: {bad_answer_list}
-    Satisfactory Predictions: {satisfactory_predictions_percentage:.2f}%
-    """
-    print(result_str)
-    log_file_path = "../results/A3/A3_results.txt"
-    with open(log_file_path, "a") as log_file:
-        log_file.write(result_str)
+'''

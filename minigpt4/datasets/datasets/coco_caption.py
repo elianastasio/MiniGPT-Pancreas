@@ -162,7 +162,8 @@ class RefTCIAPancreasEvalData(torch.utils.data.Dataset):
             #print(key)
         volume_name = str(data['volume_name'])
         slice_index = str(data['slice_index'])
-        image_name = f"{volume_name.strip('.nii.gz')}_slice_{slice_index}.png"
+        image_name = f"{volume_name.replace('label', 'PANCREAS_', 1)[:-7]}_slice_{slice_index}.png"
+        #image_name = f"{volume_name.strip('.nii.gz')}_slice_{slice_index}.png"
         #image_name = data['image_name']
         
         sent = 'pancreas'

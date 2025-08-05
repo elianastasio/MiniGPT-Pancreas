@@ -19,11 +19,42 @@ from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon, Rectangle
 import webdataset as wds
 from PIL import Image
+import torch
 from torch.utils.data import Dataset
 
 from minigpt4.datasets.datasets.vqa_datasets import VQADataset, VQAEvalDataset
 from minigpt4.datasets.datasets.base_dataset import BaseDataset
 from minigpt4.datasets.datasets.caption_datasets import CaptionDataset
+
+class RefTCIAPancreasEvalData(torch.utils.data.Dataset):
+    def __init__(self, loaded_data, vis_processor, root_path):
+        self.loaded_data = loaded_data
+        self.root_path = root_path
+        self.vis_processor = vis_processor
+
+    def __len__(self):
+        return len(self.loaded_data)
+    
+    def __getitem__(self, idx):
+        data = self.loaded_data[idx]
+        q_id = data['q_id']
+        #print('TCIA q_id: ',q_id)
+        #for key in data.keys():
+            #print(key)
+        volume_name = str(data['volume_name'])
+        slice_index = str(data['slice_index'])
+        image_name = f"{volume_name.replace('label', 'PANCREAS_', 1)[:-7]}_slice_{slice_index}.png"
+        #image_name = f"{volume_name.strip('.nii.gz')}_slice_{slice_index}.png"
+        #image_name = data['image_name']
+        
+        sent = 'pancreas'
+        #image_path = os.path.join(self.root_path, f'{img_name.replace('.nii.gz','_slice_'+slice_index+'_adjusted.jpg')}')
+        image_path = os.path.join(self.root_path, f"{image_name}")
+
+        image = Image.open(image_path).convert('RGB')
+        image = self.vis_processor(image)
+        question = f"[refer] give me the location of the {sent}"
+        return image, question, q_id
 
 class ReferTCIAPancreasDataset(Dataset):
     def __init__(self, vis_processor, text_processor, vis_root, ann_path, dataset='refcoco', splitBy='unc'):
