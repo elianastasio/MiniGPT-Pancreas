@@ -11,9 +11,11 @@ cd datasets/MSD/scripts
 python MSD_generate_slices_info.py # to extract info from 3D volumes
 python MSD_generate_jsons.py       # to generate JSON files for training and testing
 python MSD_save_slices.py          # to save slices as PNG images
+python MSD_tumor_generate_jsons.py # for tumor detection
+python MSD_tumor_save_slices.py
 ```
 
-### MSD_PANCREAS
+### NIH_PANCREAS
 
 **1.** Download the NIH TCIA pancreas dataset from [here](https://www.cancerimagingarchive.net/collection/pancreas-ct/). You will need to use [NBIA Data Retriever](https://wiki.cancerimagingarchive.net/display/NBIA/Downloading+TCIA+Images)   
 **2.** Place the 80 "PANCREAS_00**" folders in "datasets/NIH/raw_dataset/volumes"  

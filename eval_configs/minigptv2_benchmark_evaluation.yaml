@@ -26,13 +26,17 @@ evaluation_datasets:
     eval_file_path: ../datasets/MSD/annotations
     img_path: ../datasets/MSD/slices
     max_new_tokens: 20
-    batch_size: 4
+    batch_size: 24
   NIH_pancreas_detection:
     eval_file_path: ../datasets/NIH/annotations 
     img_path: ../datasets/NIH/slices
     max_new_tokens: 20
-    batch_size: 4
-
+    batch_size: 24
+  MSD_tumor_detection:
+    eval_file_path: ../datasets/MSD/annotations
+    img_path: ../datasets/MSD/slices
+    max_new_tokens: 20
+    batch_size: 16
 run:
   task: image_text_pretrain
   name: minigptvp_evaluation

@@ -13,7 +13,7 @@ from minigpt4.common.config import Config
 from minigpt4.common.eval_utils import prepare_texts, init_model, eval_parser, computeIoU, computeDSC
 from minigpt4.conversation.conversation import CONV_VISION_minigptv2
 #from minigpt4.datasets.datasets.coco_caption import RefAbd1kPancreasEvalData, RefMSDTumorEvalData
-from minigpt4.datasets.datasets.MSD_dataset import RefMSDPancreasEvalData
+from minigpt4.datasets.datasets.MSD_dataset import RefMSDPancreasEvalData, RefMSDTumorEvalData
 from minigpt4.datasets.datasets.TCIA_dataset import RefTCIAPancreasEvalData
 from evaluate_predictions import evaluate
 from datetime import datetime
@@ -21,19 +21,16 @@ from datetime import datetime
 def list_of_str(arg):
     return list(map(str, arg.split(',')))
 
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+timestamp = datetime.now().strftime("%d%m%Y_%H%M%S")
 parser = eval_parser()
 parser.add_argument("--dataset", type=list_of_str, default='refcoco', help="dataset to evaluate")
 parser.add_argument("--res", type=float, default=100.0, help="resolution used in refcoco")
 parser.add_argument("--resample", action='store_true', help="resolution used in refcoco")
+parser.add_argument("--balanced", action='store_true', help="whether to use balanced pancreas and non-pancreas slices")
 args = parser.parse_args()
 
 cfg = Config(args)
-'''
-eval_dict = {'refcoco': ['val','testA','testB'], 
-            'refcoco+': ['val','testA','testB'],
-            'refcocog': ['val','test']}
-'''
+
 model, vis_processor = init_model(args)
 model.eval()
 CONV_VISION = CONV_VISION_minigptv2
@@ -46,15 +43,16 @@ save_path = cfg.run_cfg.save_path
 
 if 'MSD_pancreas_detection' in args.dataset:
     MSD_pancreas_detection = "MSD_pancreas_detection"
-    annotation_name = "MSD_test.json"
+    if args.balanced:
+        annotation_name = "MSD_balanced_test.json"
+    else:
+        annotation_name = "MSD_test.json"
     eval_file_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["eval_file_path"]
     img_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["img_path"]
     batch_size = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["batch_size"]
     max_new_tokens = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["max_new_tokens"]
-    checkpoint = cfg.model_cfg["ckpt"]
-    if checkpoint.startswith("../"):
-        checkpoint = checkpoint[3:]
-    
+    checkpoint = cfg.model_cfg["ckpt"]  
+
     with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
         MSD_pancreas = json.load(f)
 
@@ -96,7 +94,12 @@ if 'MSD_pancreas_detection' in args.dataset:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
             if len(resamples) == 0:
                 break
-    file_save_path = os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.json")
+    if args.balanced:
+        file_save_path = os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_balanced_{timestamp}.json")    
+        log_save_path = os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_balanced_{timestamp}.log")
+    else: 
+        file_save_path = os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.json")
+        log_save_path= os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.log")
     os.makedirs(os.path.join(save_path, "pancreas_detection"), exist_ok=True)
     with open(file_save_path,'w') as f:
         json.dump(minigpt4_predict, f)
@@ -105,19 +108,23 @@ if 'MSD_pancreas_detection' in args.dataset:
         gt_file=os.path.join(eval_file_path, annotation_name),
         pred_file=file_save_path,
         task_name="Pancreas detection",
-        dataset_name="MSD_Pancreas",
+        dataset_name="MSD",
         checkpoint=checkpoint,
-        log_save_path=os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.log")
+        log_save_path=log_save_path,
+        balanced=args.balanced
     )
 
 if 'NIH_pancreas_detection' in args.dataset:
     NIH_pancreas_detection = "NIH_pancreas_detection"
-    annotation_name = "NIH_test.json"
+    if args.balanced:
+        annotation_name = "NIH_balanced_test.json"
+    else:
+        annotation_name = "NIH_test.json"
     eval_file_path = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["eval_file_path"]
     img_path = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["img_path"]
     batch_size = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["batch_size"]
     max_new_tokens = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["max_new_tokens"]
-    checkpoint = cfg.model_cfg["ckpt"][3:]
+    checkpoint = cfg.model_cfg["ckpt"]
     
     with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
         TCIA_pancreas = json.load(f)
@@ -160,8 +167,15 @@ if 'NIH_pancreas_detection' in args.dataset:
                         resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
             if len(resamples) == 0:
                 break
-    file_save_path = os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.json")
+
+    if args.balanced:
+        file_save_path = os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_balanced_{timestamp}.json")    
+        log_save_path = os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_balanced_{timestamp}.log")
+    else: 
+        file_save_path = os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.json")
+        log_save_path= os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.log")
     os.makedirs(os.path.join(save_path, "pancreas_detection"), exist_ok=True)
+    
     with open(file_save_path,'w') as f:
         json.dump(minigpt4_predict, f)
 
@@ -171,9 +185,83 @@ if 'NIH_pancreas_detection' in args.dataset:
         task_name="Pancreas detection",
         dataset_name="NIH_Pancreas",
         checkpoint=checkpoint,
-        log_save_path=os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.log")
+        log_save_path = log_save_path,
+        balanced=args.balanced
     )
 
+if 'MSD_tumor_detection' in args.dataset:
+    MSD_tumor_detection = "MSD_tumor_detection"
+    if args.balanced:
+        annotation_name = "MSD_tumor_balanced_test.json"
+    else:
+        annotation_name = "MSD_tumor_test.json"
+    eval_file_path = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["eval_file_path"]
+    img_path = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["img_path"]
+    batch_size = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["batch_size"]
+    max_new_tokens = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["max_new_tokens"]
+    checkpoint = cfg.model_cfg["ckpt"]  
+
+    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
+        MSD_tumor = json.load(f)
+
+    data = RefMSDTumorEvalData(MSD_tumor, vis_processor, img_path) #return image, question, img_id
+    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+    minigpt4_predict = defaultdict(list)
+    resamples = []
+    bad_answer_list = []
+    bad_answers = 0
+
+    for images, questions, q_ids in tqdm(eval_dataloader):
+        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+        for answer, q_id, question in zip(answers, q_ids, questions):
+            q_id_int = int(q_id)
+            answer = answer.replace("<unk>","").replace(" ","").strip()
+            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+            if re.match(pattern, answer):
+                minigpt4_predict[q_id_int].append(answer)
+            else:
+                bad_answers += 1
+                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]}) 
+    if args.resample:
+        for i in range(20):
+            data = RefMSDTumorEvalData(resamples, vis_processor, img_path)
+            resamples = []
+            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+            for images, questions, q_ids in tqdm(eval_dataloader):
+                texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+                for answer, q_id, question in zip(answers, q_ids, questions):
+                    q_id_int = int(q_id)
+                    answer = answer.replace("<unk>","").replace(" ","").strip()
+                    pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+                    if re.match(pattern, answer) or i == 4:
+                        minigpt4_predict[q_id_int].append(answer)
+                    else:
+                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
+            if len(resamples) == 0:
+                break
+    if args.balanced:
+        file_save_path = os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_balanced_{timestamp}.json")    
+        log_save_path = os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_balanced_{timestamp}.log")
+    else: 
+        file_save_path = os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_{timestamp}.json")
+        log_save_path= os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_{timestamp}.log")
+    os.makedirs(os.path.join(save_path, "tumor_detection"), exist_ok=True)
+    with open(file_save_path,'w') as f:
+        json.dump(minigpt4_predict, f)
+    
+    evaluate(
+        gt_file=os.path.join(eval_file_path, annotation_name),
+        pred_file=file_save_path,
+        task_name="Tumor detection",
+        target="tumor",
+        dataset_name="MSD",
+        checkpoint=checkpoint,
+        log_save_path=log_save_path,
+        balanced=args.balanced
+    )
     
 '''
 if 'A3_TD' in args.dataset:

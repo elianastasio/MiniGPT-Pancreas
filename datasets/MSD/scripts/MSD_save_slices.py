@@ -49,7 +49,7 @@ def process_slices(data, volumes_path, output_dir, balanced):
 
         # If running --balanced after having run the base script, skip pancreas slices
         if os.path.exists(output_path) and balanced:
-            print(f'skipping slice {output_path}')
+            # print(f'skipping slice {output_path}')
             continue
         # Preprocess slice
         processed_slice = preprocess_image(slice_data)

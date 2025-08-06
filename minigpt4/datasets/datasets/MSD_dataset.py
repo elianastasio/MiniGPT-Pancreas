@@ -40,11 +40,33 @@ class RefMSDPancreasEvalData(torch.utils.data.Dataset):
         q_id = data['q_id']
         volume_name = str(data['volume_name'])
         slice_index = str(data['slice_index'])
-        #print("Elia: q_id:", q_id)
         image_name = f"{volume_name.strip('.nii.gz')}_slice_{slice_index}.png"
         
         sent = 'pancreas'
-        #image_path = os.path.join(self.root_path, f'{img_name.replace('.nii.gz','_slice_'+slice_index+'_adjusted.jpg')}')
+        image_path = os.path.join(self.root_path, f"{image_name}")
+
+        image = Image.open(image_path).convert('RGB')
+        image = self.vis_processor(image)
+        question = f"[refer] give me the location of the {sent}"
+        return image, question, q_id
+
+class RefMSDTumorEvalData(torch.utils.data.Dataset):
+    def __init__(self, loaded_data, vis_processor, root_path):
+        self.loaded_data = loaded_data
+        self.root_path = root_path
+        self.vis_processor = vis_processor
+
+    def __len__(self):
+        return len(self.loaded_data)
+    
+    def __getitem__(self, idx):
+        data = self.loaded_data[idx]
+        q_id = data['q_id']
+        volume_name = str(data['volume_name'])
+        slice_index = str(data['slice_index'])
+        image_name = f"{volume_name.strip('.nii.gz')}_slice_{slice_index}.png"
+        
+        sent = 'pancreatic tumor'
         image_path = os.path.join(self.root_path, f"{image_name}")
 
         image = Image.open(image_path).convert('RGB')
@@ -83,11 +105,6 @@ class ReferMSDPancreasDataset(Dataset):
     def preprocess(self, index):
         ref_id = self.ref_ids[index]
         ref = self.refer.loadRefs(ref_id)[0]
-
-        #print("Keys in ref dictionary:", ref.keys())#elia
-        #print("Elia, ref_id: ", ref['ref_id'])
-        #print("Elia, ann_id: ", ref['ann_id'])
-        #print("Elia, sentences: ", ref['sentences'])
         image_file = ref["ref_id"]
 
         image_path = os.path.join(self.vis_root, image_file)
@@ -97,25 +114,19 @@ class ReferMSDPancreasDataset(Dataset):
         image_new_size = [image.shape[1], image.shape[2]]
 
         image_new_size = [100,100]
-
-        #sample_sentence = random.choice(ref['sentences'])['raw']
-        sample_sentence = ref['sentences'][0]['sent']#eliamodifica, is always pancreas
-        #print("Elia: sample_sentence: ", sample_sentence)#elia
+        sample_sentence = ref['sentences'][0]['sent']
 
         refer_sentence = self.text_processor(sample_sentence)
-        #print("Elia: refer_sentence: ", refer_sentence)#elia, is always pancreas
 
         bbox = self.refer.getRefBox(ref['ref_id'])
-        #print("Elia, output of getRefBox: ", bbox)
         bbox = [
             bbox[0] / image_orig_size[0] * image_new_size[0],
             bbox[1] / image_orig_size[1] * image_new_size[1],
-            bbox[2] / image_orig_size[0] * image_new_size[0],#elia: modified because the code thought i gave it x_left, y_top, width, height
-            bbox[3] / image_orig_size[1] * image_new_size[1]#same as above
+            bbox[2] / image_orig_size[0] * image_new_size[0],
+            bbox[3] / image_orig_size[1] * image_new_size[1]
         ]
         bbox = [int(x) for x in bbox]
         bbox = "{{<{}><{}><{}><{}>}}".format(*bbox)
-        #print("Elia, formatted bBox: ", bbox)
         return {
             "image": image,
             "refer_sentence": refer_sentence,
