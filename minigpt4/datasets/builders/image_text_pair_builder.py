@@ -25,7 +25,7 @@ from minigpt4.datasets.datasets.rocov2_caption import ROCOv2CapTrainDataset, ROC
 from minigpt4.datasets.datasets.openi_caption import OpeniCapDataset
 from minigpt4.datasets.datasets.vqarad_dataset import VQARADDataset
 from minigpt4.datasets.datasets.slake_dataset import SlakeDataset, ReferSlakeDataset
-from minigpt4.datasets.datasets.MSD_dataset import ReferMSDPancreasDataset
+from minigpt4.datasets.datasets.MSD_dataset import ReferMSDPancreasDataset, ReferMSDTumorDataset
 from minigpt4.datasets.datasets.TCIA_dataset import ReferTCIAPancreasDataset
 from minigpt4.datasets.datasets.Abd1k_dataset import ReferAbd1kPancreasDataset
 
@@ -251,18 +251,46 @@ class COCOCapBuilder(BaseDatasetBuilder):
         "default": "configs/datasets/TD_MSD/default_ref.yaml",
     }
 
-@registry.register_builder("MSD_pancreas_ref")
+@registry.register_builder("MSD_pancreas_detection")
 class MSDPancreasRefBuilder(AllRefCOCOBuilder):
     train_dataset_cls = ReferMSDPancreasDataset
     DATASET_CONFIG_DICT = {
         "default": "configs/datasets/MSD/default_ref.yaml",
     }
 
-@registry.register_builder("TCIA_pancreas_ref")
+@registry.register_builder("MSD_pancreas_detection_balanced")
+class MSDPancreasRefBuilder(AllRefCOCOBuilder):
+    train_dataset_cls = ReferMSDPancreasDataset
+    DATASET_CONFIG_DICT = {
+        "default": "configs/datasets/MSD/default_ref_balanced.yaml",
+    }
+
+@registry.register_builder("MSD_tumor_detection")
+class MSDTumorRefBuilder(AllRefCOCOBuilder):
+    train_dataset_cls = ReferMSDTumorDataset
+    DATASET_CONFIG_DICT = {
+        "default": "configs/datasets/MSD/default_ref_tumor.yaml",
+    }
+
+@registry.register_builder("MSD_tumor_detection_balanced")
+class MSDTumorRefBuilder(AllRefCOCOBuilder):
+    train_dataset_cls = ReferMSDTumorDataset
+    DATASET_CONFIG_DICT = {
+        "default": "configs/datasets/MSD/default_ref_tumor_balanced.yaml",
+    }
+
+@registry.register_builder("NIH_pancreas_detection")
 class TCIAPancreasRefBuilder(AllRefCOCOBuilder):
     train_dataset_cls = ReferTCIAPancreasDataset
     DATASET_CONFIG_DICT = {
         "default": "configs/datasets/TCIA/default_ref.yaml",
+    }
+
+@registry.register_builder("NIH_pancreas_detection_balanced")
+class TCIAPancreasRefBuilder(AllRefCOCOBuilder):
+    train_dataset_cls = ReferTCIAPancreasDataset
+    DATASET_CONFIG_DICT = {
+        "default": "configs/datasets/TCIA/default_ref_balanced.yaml",
     }
 
 @registry.register_builder("slake_ref")

@@ -23,9 +23,10 @@ def list_of_str(arg):
 
 timestamp = datetime.now().strftime("%d%m%Y_%H%M%S")
 parser = eval_parser()
+parser.add_argument("--tasks", type=list_of_str, help="tasks to evaluate")
 parser.add_argument("--dataset", type=list_of_str, default='refcoco', help="dataset to evaluate")
 parser.add_argument("--res", type=float, default=100.0, help="resolution used in refcoco")
-parser.add_argument("--resample", action='store_true', help="resolution used in refcoco")
+parser.add_argument("--resample", action='store_true', help="wether to resample incorrect answers")
 parser.add_argument("--balanced", action='store_true', help="whether to use balanced pancreas and non-pancreas slices")
 args = parser.parse_args()
 
@@ -41,18 +42,17 @@ conv_temp.system = ""
 model.eval()
 save_path = cfg.run_cfg.save_path
 
-if 'MSD_pancreas_detection' in args.dataset:
+checkpoint = cfg.model_cfg["ckpt"]
+
+if 'pancreas_detection' in args.tasks:
+    # Evaluate checkpoint on pancreas_detection task using MSD dataset
     MSD_pancreas_detection = "MSD_pancreas_detection"
-    if args.balanced:
-        annotation_name = "MSD_balanced_test.json"
-    else:
-        annotation_name = "MSD_test.json"
+    annotation_name = "MSD_test.json"
     eval_file_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["eval_file_path"]
     img_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["img_path"]
     batch_size = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["batch_size"]
     max_new_tokens = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["max_new_tokens"]
-    checkpoint = cfg.model_cfg["ckpt"]  
-
+      
     with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
         MSD_pancreas = json.load(f)
 
@@ -63,7 +63,7 @@ if 'MSD_pancreas_detection' in args.dataset:
     bad_answer_list = []
     bad_answers = 0
 
-    for images, questions, q_ids in tqdm(eval_dataloader):
+    for images, questions, q_ids in tqdm(eval_dataloader, desc='pancreas_detection - MSD'):
         texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
         answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
         for answer, q_id, question in zip(answers, q_ids, questions):
@@ -76,55 +76,20 @@ if 'MSD_pancreas_detection' in args.dataset:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
                 resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]}) 
-    if args.resample:
-        for i in range(20):
-            data = RefMSDPancreasEvalData(resamples, vis_processor, img_path)
-            resamples = []
-            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-            for images, questions, q_ids in tqdm(eval_dataloader):
-                texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-                for answer, q_id, question in zip(answers, q_ids, questions):
-                    q_id_int = int(q_id)
-                    answer = answer.replace("<unk>","").replace(" ","").strip()
-                    pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-                    if re.match(pattern, answer) or i == 4:
-                        minigpt4_predict[q_id_int].append(answer)
-                    else:
-                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
-            if len(resamples) == 0:
-                break
-    if args.balanced:
-        file_save_path = os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_balanced_{timestamp}.json")    
-        log_save_path = os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_balanced_{timestamp}.log")
-    else: 
-        file_save_path = os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.json")
-        log_save_path= os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.log")
+ 
+    file_save_path = os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.json")
+    #log_save_path= os.path.join(save_path,"pancreas_detection",f"MSD_pancreas_detection_{timestamp}.log")
     os.makedirs(os.path.join(save_path, "pancreas_detection"), exist_ok=True)
     with open(file_save_path,'w') as f:
         json.dump(minigpt4_predict, f)
-    
-    evaluate(
-        gt_file=os.path.join(eval_file_path, annotation_name),
-        pred_file=file_save_path,
-        task_name="Pancreas detection",
-        dataset_name="MSD",
-        checkpoint=checkpoint,
-        log_save_path=log_save_path,
-        balanced=args.balanced
-    )
 
-if 'NIH_pancreas_detection' in args.dataset:
+    # Evaluate checkpoint on pancreas_detection task using NIH dataset
     NIH_pancreas_detection = "NIH_pancreas_detection"
-    if args.balanced:
-        annotation_name = "NIH_balanced_test.json"
-    else:
-        annotation_name = "NIH_test.json"
+    annotation_name = "NIH_test.json"
     eval_file_path = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["eval_file_path"]
     img_path = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["img_path"]
     batch_size = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["batch_size"]
     max_new_tokens = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["max_new_tokens"]
-    checkpoint = cfg.model_cfg["ckpt"]
     
     with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
         TCIA_pancreas = json.load(f)
@@ -136,7 +101,7 @@ if 'NIH_pancreas_detection' in args.dataset:
     bad_answer_list = []
     bad_answers = 0
 
-    for images, questions, q_ids in tqdm(eval_dataloader):
+    for images, questions, q_ids in tqdm(eval_dataloader, desc='pancreas_detection - NIH'):
         texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
         answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
         for answer, q_id, question in zip(answers, q_ids, questions):
@@ -149,57 +114,112 @@ if 'NIH_pancreas_detection' in args.dataset:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
                 resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
-    if args.resample:
-        for i in range(20):
-            data = RefTCIAPancreasEvalData(resamples, vis_processor, img_path)
-            resamples = []
-            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-            for images, questions, q_ids in tqdm(eval_dataloader):
-                texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-                for answer, q_id, question in zip(answers, q_ids, questions):
-                    q_id_int = int(q_id)
-                    answer = answer.replace("<unk>","").replace(" ","").strip()
-                    pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-                    if re.match(pattern, answer) or i == 4:
-                        minigpt4_predict[q_id_int].append(answer)
-                    else:
-                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
-            if len(resamples) == 0:
-                break
 
-    if args.balanced:
-        file_save_path = os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_balanced_{timestamp}.json")    
-        log_save_path = os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_balanced_{timestamp}.log")
-    else: 
-        file_save_path = os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.json")
-        log_save_path= os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.log")
-    os.makedirs(os.path.join(save_path, "pancreas_detection"), exist_ok=True)
+    file_save_path = os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.json")
+    #log_save_path= os.path.join(save_path,"pancreas_detection",f"NIH_pancreas_detection_{timestamp}.log")
+    #os.makedirs(os.path.join(save_path, "pancreas_detection"), exist_ok=True)
     
     with open(file_save_path,'w') as f:
         json.dump(minigpt4_predict, f)
 
     evaluate(
-        gt_file=os.path.join(eval_file_path, annotation_name),
-        pred_file=file_save_path,
-        task_name="Pancreas detection",
-        dataset_name="NIH_Pancreas",
-        checkpoint=checkpoint,
-        log_save_path = log_save_path,
-        balanced=args.balanced
+        timestamp=timestamp,
+        task_name="pancreas_detection",
+        checkpoint=checkpoint
     )
 
-if 'MSD_tumor_detection' in args.dataset:
+if 'pancreas_detection_balanced' in args.tasks:
+    MSD_pancreas_detection = "MSD_pancreas_detection"
+    annotation_name = "MSD_balanced_test.json"
+    eval_file_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["eval_file_path"]
+    img_path = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["img_path"]
+    batch_size = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["batch_size"]
+    max_new_tokens = cfg.evaluation_datasets_cfg[MSD_pancreas_detection]["max_new_tokens"]
+
+    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
+        MSD_pancreas = json.load(f)
+
+    data = RefMSDPancreasEvalData(MSD_pancreas, vis_processor, img_path) #return image, question, img_id
+    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+    minigpt4_predict = defaultdict(list)
+    resamples = []
+    bad_answer_list = []
+    bad_answers = 0
+
+    for images, questions, q_ids in tqdm(eval_dataloader, desc='pancreas_detection_balanced - MSD'):
+        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+        for answer, q_id, question in zip(answers, q_ids, questions):
+            q_id_int = int(q_id)
+            answer = answer.replace("<unk>","").replace(" ","").strip()
+            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+            if re.match(pattern, answer):
+                minigpt4_predict[q_id_int].append(answer)
+            else:
+                bad_answers += 1
+                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]}) 
+    
+    file_save_path = os.path.join(save_path,"pancreas_detection_balanced",f"MSD_pancreas_detection_balanced_{timestamp}.json")    
+    log_save_path = os.path.join(save_path,"pancreas_detection_balanced",f"MSD_pancreas_detection_balanced_{timestamp}.log")
+    os.makedirs(os.path.join(save_path, "pancreas_detection_balanced"), exist_ok=True)
+    
+    with open(file_save_path,'w') as f:
+        json.dump(minigpt4_predict, f)
+
+    NIH_pancreas_detection = "NIH_pancreas_detection"
+    annotation_name = "NIH_balanced_test.json"
+
+    eval_file_path = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["eval_file_path"]
+    img_path = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["img_path"]
+    batch_size = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["batch_size"]
+    max_new_tokens = cfg.evaluation_datasets_cfg[NIH_pancreas_detection]["max_new_tokens"]
+    
+    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
+        TCIA_pancreas = json.load(f)
+
+    data = RefTCIAPancreasEvalData(TCIA_pancreas, vis_processor, img_path) #return image, question, img_id
+    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+    minigpt4_predict = defaultdict(list)
+    resamples = []
+    bad_answer_list = []
+    bad_answers = 0
+
+    for images, questions, q_ids in tqdm(eval_dataloader, desc='pancreas_detection_balanced - NIH'):
+        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+        for answer, q_id, question in zip(answers, q_ids, questions):
+            q_id_int = int(q_id)
+            answer = answer.replace("<unk>","").replace(" ","").strip()
+            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+            if re.match(pattern, answer):
+                minigpt4_predict[q_id_int].append(answer)
+            else:
+                bad_answers += 1
+                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]})
+
+    file_save_path = os.path.join(save_path,"pancreas_detection_balanced",f"NIH_pancreas_detection_balanced_{timestamp}.json")    
+    #log_save_path = os.path.join(save_path,"pancreas_detection_balanced",f"NIH_pancreas_detection_balanced_{timestamp}.log")
+    os.makedirs(os.path.join(save_path, "pancreas_detection_balanced"), exist_ok=True)
+    
+    with open(file_save_path,'w') as f:
+        json.dump(minigpt4_predict, f)
+
+    evaluate(
+        timestamp=timestamp,
+        task_name="pancreas_detection_balanced",
+        checkpoint=checkpoint
+    )
+
+if 'tumor_detection' in args.tasks:
     MSD_tumor_detection = "MSD_tumor_detection"
-    if args.balanced:
-        annotation_name = "MSD_tumor_balanced_test.json"
-    else:
-        annotation_name = "MSD_tumor_test.json"
+    annotation_name = "MSD_tumor_test.json"
+
     eval_file_path = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["eval_file_path"]
     img_path = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["img_path"]
     batch_size = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["batch_size"]
-    max_new_tokens = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["max_new_tokens"]
-    checkpoint = cfg.model_cfg["ckpt"]  
+    max_new_tokens = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["max_new_tokens"]  
 
     with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
         MSD_tumor = json.load(f)
@@ -224,45 +244,64 @@ if 'MSD_tumor_detection' in args.dataset:
                 bad_answers += 1
                 bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
                 resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]}) 
-    if args.resample:
-        for i in range(20):
-            data = RefMSDTumorEvalData(resamples, vis_processor, img_path)
-            resamples = []
-            eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-            for images, questions, q_ids in tqdm(eval_dataloader):
-                texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-                answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
-                for answer, q_id, question in zip(answers, q_ids, questions):
-                    q_id_int = int(q_id)
-                    answer = answer.replace("<unk>","").replace(" ","").strip()
-                    pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
-                    if re.match(pattern, answer) or i == 4:
-                        minigpt4_predict[q_id_int].append(answer)
-                    else:
-                        resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] give me the location of the','').strip()]}) 
-            if len(resamples) == 0:
-                break
-    if args.balanced:
-        file_save_path = os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_balanced_{timestamp}.json")    
-        log_save_path = os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_balanced_{timestamp}.log")
-    else: 
-        file_save_path = os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_{timestamp}.json")
-        log_save_path= os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_{timestamp}.log")
+    
+    file_save_path = os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_{timestamp}.json")
+    #log_save_path= os.path.join(save_path,"tumor_detection",f"MSD_tumor_detection_{timestamp}.log")
     os.makedirs(os.path.join(save_path, "tumor_detection"), exist_ok=True)
     with open(file_save_path,'w') as f:
         json.dump(minigpt4_predict, f)
     
     evaluate(
-        gt_file=os.path.join(eval_file_path, annotation_name),
-        pred_file=file_save_path,
-        task_name="Tumor detection",
-        target="tumor",
-        dataset_name="MSD",
-        checkpoint=checkpoint,
-        log_save_path=log_save_path,
-        balanced=args.balanced
+        timestamp=timestamp,
+        task_name="tumor_detection",
+        checkpoint=checkpoint
     )
+
+if 'tumor_detection_balanced' in args.tasks:
+    MSD_tumor_detection = "MSD_tumor_detection"
+    annotation_name = "MSD_tumor_balanced_test.json"
+
+    eval_file_path = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["eval_file_path"]
+    img_path = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["img_path"]
+    batch_size = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["batch_size"]
+    max_new_tokens = cfg.evaluation_datasets_cfg[MSD_tumor_detection]["max_new_tokens"]  
+
+    with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
+        MSD_tumor = json.load(f)
+
+    data = RefMSDTumorEvalData(MSD_tumor, vis_processor, img_path) #return image, question, img_id
+    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+    minigpt4_predict = defaultdict(list)
+    resamples = []
+    bad_answer_list = []
+    bad_answers = 0
+
+    for images, questions, q_ids in tqdm(eval_dataloader):
+        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+        for answer, q_id, question in zip(answers, q_ids, questions):
+            q_id_int = int(q_id)
+            answer = answer.replace("<unk>","").replace(" ","").strip()
+            pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+            if re.match(pattern, answer):
+                minigpt4_predict[q_id_int].append(answer)
+            else:
+                bad_answers += 1
+                bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
+                resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]}) 
     
+    file_save_path = os.path.join(save_path,"tumor_detection_balanced",f"MSD_tumor_detection_balanced_{timestamp}.json")    
+    #log_save_path = os.path.join(save_path,"tumor_detection_balanced",f"MSD_tumor_detection_balanced_{timestamp}.log")
+
+    os.makedirs(os.path.join(save_path, "tumor_detection_balanced"), exist_ok=True)
+    with open(file_save_path,'w') as f:
+        json.dump(minigpt4_predict, f)
+    
+    evaluate(
+        timestamp=timestamp,
+        task_name="tumor_detection_balanced",
+        checkpoint=checkpoint
+    )
 '''
 if 'A3_TD' in args.dataset:
     MSD_pancreas_detection = "TD"

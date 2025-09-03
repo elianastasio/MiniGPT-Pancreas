@@ -13,6 +13,6 @@ ckpt: "checkpoints/checkpoint_stage3.pth"
 output_dir: "checkpoints/pancreas_detection"
 
 ```bash
-torchrun --nproc-per-node NUM_GPU train.py --cfg-path train_configs/minigptp_finetune.yaml
+torchrun --nproc-per-node 1 train.py --cfg-path train_configs/minigptv2_finetune.yaml
 ```
 

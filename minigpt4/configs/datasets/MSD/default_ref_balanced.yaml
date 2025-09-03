@@ -1,8 +1,8 @@
 datasets:
-  MSD_pancreas_detection:
+  MSD_pancreas_detection_balanced:
     data_type: images
     build_info:
       image_path: datasets/MSD/slices
-      ann_path: datasets/MSD/annotations/MSD_train.json
+      ann_path: datasets/MSD/annotations/MSD_balanced_train.json
       dataset: MSD_pancreas_detection
       splitBy: unc

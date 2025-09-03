@@ -1,19 +1,19 @@
 model:
-  arch: minigptp
+  arch: minigpt_v2
   model_type: pretrain
   max_txt_len: 1024
   image_size: 448
   end_sym: "</s>"
   llama_model: "Llama-2-7b-chat-hf"
-  ckpt: "checkpoints/checkpoint_stage3.pth"
+  ckpt: "checkpoints/pancreas_detection/20250806153/checkpoint_11.pth"
   use_grad_checkpoint: True
   chat_template: True
   lora_r: 64
   lora_alpha: 16
 
 datasets:
-MSD_pancreas_ref:
-    batch_size: 6
+  MSD_tumor_detection: #MSD_pancreas_detection:
+    batch_size: 16
     vis_processor:
       train:
         name: "blip2_image_train"
@@ -21,10 +21,20 @@ MSD_pancreas_ref:
     text_processor:
       train:
         name: "blip_caption"
-    sample_ratio: 50
+    sample_ratio: 100
+  #MSD_pancreas_detection_balanced: #MSD_pancreas_detection:
+  #  batch_size: 16
+   # vis_processor:
+   ##   train:
+   #     name: "blip2_image_train"
+   #     image_size: 448
+   # text_processor:
+   #   train:
+   #     name: "blip_caption"
+   # sample_ratio: 50
 
-  #TCIA_pancreas_ref:
-  #  batch_size: 6
+  #NIH_pancreas_detection_balanced: #NIH_pancreas_detection:
+  #  batch_size: 16
   #  vis_processor:
   #    train:
   #      name: "blip2_image_train"
@@ -46,10 +56,10 @@ run:
   max_epoch: 50
   num_workers: 6
   warmup_steps: 1000
-  iters_per_epoch: 1000
+  iters_per_epoch: 100
 
   seed: 42
-  output_dir: "checkpoints/pancreas_detection"
+  output_dir: "../checkpoints/tumor_detection_balanced" #relative to ./minigpt4
 
   amp: True
   resume_ckpt_path: null
@@ -63,4 +73,4 @@ run:
   distributed: True
 
   wandb_log: True
-  job_name: minigptv2_finetune
+  job_name: tumor_det_batch_32_short_epochs

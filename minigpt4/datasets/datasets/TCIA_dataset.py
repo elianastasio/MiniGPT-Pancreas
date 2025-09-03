@@ -93,6 +93,9 @@ class ReferTCIAPancreasDataset(Dataset):
         #print("Elia, ann_id: ", ref['ann_id'])
         #print("Elia, sentences: ", ref['sentences'])
         image_file = ref["ref_id"]
+        #volume_name = str(ref['volume_name'])
+        #slice_index = str(ref['slice_index'])
+        #image_file = f"{volume_name.replace('label', 'PANCREAS_', 1)[:-7]}_slice_{slice_index}.png"
 
         image_path = os.path.join(self.vis_root, image_file)
         image = Image.open(image_path).convert("RGB")
@@ -227,9 +230,14 @@ class REFER_TCIA:
         self.Cats = {}
         
         for item in self.data:
-            item['sents'] = 'pancreas' 
+
+            volume_name = str(item['volume_name'])
             slice_index = str(item['slice_index'])
-            img_id = item['volume_name'].strip('.nii.gz')+'_slice_'+slice_index+'.png'
+            img_id = f"{volume_name.replace('label', 'PANCREAS_', 1)[:-7]}_slice_{slice_index}.png"
+        
+            item['sents'] = 'pancreas' 
+            #slice_index = str(item['slice_index'])
+            #img_id = item['volume_name'].strip('.nii.gz')+'_slice_'+slice_index+'.png'
             #img_id = item['image_name'].replace('.nii.gz', '_slice_adjusted.png')#elia: poiché il json ha i nomi originali delle immagini 3d
             ann_id = img_id + '_' + item['sents']  # Using image id + sentence as annotation id
             self.Imgs[img_id] = {'id': img_id, 'height': item['height'], 'width': item['width']}

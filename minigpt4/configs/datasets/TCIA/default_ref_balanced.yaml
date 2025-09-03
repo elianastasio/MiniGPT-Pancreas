@@ -1,8 +1,8 @@
 datasets:
-  NIH_pancreas_detection:
+  NIH_pancreas_detection_balanced:
     data_type: images
     build_info:
       image_path: datasets/NIH/slices
-      ann_path: datasets/NIH/annotations/NIH_train.json
+      ann_path: datasets/NIH/annotations/NIH_balanced_train.json
       dataset: NIH_pancreas_ref
       splitBy: unc

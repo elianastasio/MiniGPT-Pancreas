@@ -6,7 +6,9 @@ model:
   low_resource: False
   prompt_template: '[INST] {} [/INST]'
   llama_model: "../Llama-2-7b-chat-hf"
-  ckpt:  "../checkpoints/checkpoint_stage3.pth"
+  #ckpt:  "../checkpoints/pancreas_detection/20250806153/checkpoint_49.pth"
+  ckpt: "../checkpoints/pancreas_detection/20250807085/checkpoint_0.pth" #pancreas_detection/"
+  ckpt_dir: "../checkpoints/tumor_detection/20250817195" #used by eval_ref_multiple
   lora_r: 64
   lora_alpha: 16
 
