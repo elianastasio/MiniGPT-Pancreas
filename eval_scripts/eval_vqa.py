@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader
 
 
-from minigpt4.datasets.datasets.vqa_datasets import TCEvalData,VQARADEvalData,OKVQAEvalData,VizWizEvalData,IconQAEvalData,GQAEvalData,VSREvalData,HMEvalData
+from minigpt4.datasets.datasets.vqa_datasets import TCEvalData
 from minigpt4.common.vqa_tools.VQA.PythonHelperTools.vqaTools.vqa import VQA
 from minigpt4.common.vqa_tools.VQA.PythonEvaluationTools.vqaEvaluation.vqaEval import VQAEval
 
@@ -36,19 +36,19 @@ conv_temp.system = ""
 model.eval()
 save_path = cfg.run_cfg.save_path
 
-if 'TC_MSD_and_TCIA' in args.dataset:
+if 'TC' in args.dataset:
 
-    eval_file_path = cfg.evaluation_datasets_cfg["tc_msd_and_tcia"]["eval_file_path"]
-    img_path = cfg.evaluation_datasets_cfg["tc_msd_and_tcia"]["img_path"]
-    batch_size = cfg.evaluation_datasets_cfg["tc_msd_and_tcia"]["batch_size"]
-    max_new_tokens = cfg.evaluation_datasets_cfg["tc_msd_and_tcia"]["max_new_tokens"]
+    eval_file_path = cfg.evaluation_datasets_cfg["TC"]["eval_file_path"]
+    img_path = cfg.evaluation_datasets_cfg["TC"]["img_path"]
+    batch_size = cfg.evaluation_datasets_cfg["TC"]["batch_size"]
+    max_new_tokens = cfg.evaluation_datasets_cfg["TC"]["max_new_tokens"]
     
 
-    evaluation_annntation_path = os.path.join(eval_file_path, "A3_TC_test_merged.json")
+    evaluation_annntation_path = os.path.join(eval_file_path, "TC_test.json")
     with open(evaluation_annntation_path) as f:
-        tc_msd_and_tcia_test_split = json.load(f)
+        TC_test_split = json.load(f)
 
-    data = TCEvalData(tc_msd_and_tcia_test_split, vis_processor, img_path)
+    data = TCEvalData(TC_test_split, vis_processor, img_path)
     eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
     minigptp_predict = []
 
@@ -63,7 +63,8 @@ if 'TC_MSD_and_TCIA' in args.dataset:
             result['question_id'] = int(question_id)
             minigptp_predict.append(result)
 
-    file_save_path= os.path.join(save_path,"MiniGPT_Med_predictions.json")
+    os.makedirs(save_path, exist_ok=True)
+    file_save_path= os.path.join(save_path,"TC_predictions.json")
     with open(file_save_path,'w') as f:
         json.dump(minigptp_predict, f)
     print ("Finished evaluating on TC, json output:", file_save_path)

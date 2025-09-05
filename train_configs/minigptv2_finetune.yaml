@@ -12,16 +12,16 @@ model:
   lora_alpha: 16
 
 datasets:
-  MSD_tumor_detection: #MSD_pancreas_detection:
-    batch_size: 16
-    vis_processor:
-      train:
-        name: "blip2_image_train"
-        image_size: 448
-    text_processor:
-      train:
-        name: "blip_caption"
-    sample_ratio: 100
+  #MSD_tumor_detection: #MSD_pancreas_detection:
+  #  batch_size: 16
+  #  vis_processor:
+  #    train:
+  #      name: "blip2_image_train"
+  #      image_size: 448
+  #  text_processor:
+  #    train:
+  #      name: "blip_caption"
+  #  sample_ratio: 100
   #MSD_pancreas_detection_balanced: #MSD_pancreas_detection:
   #  batch_size: 16
    # vis_processor:
@@ -43,6 +43,16 @@ datasets:
   #    train:
   #      name: "blip_caption"
   #  sample_ratio: 50
+  TC:
+    batch_size: 16
+    vis_processor:
+      train:
+        name: "blip2_image_train"
+        image_size: 448
+    text_processor:
+      train:
+        name: "blip_caption"
+      sample_ratio: 100
 
 run:
   task: image_text_pretrain
@@ -56,10 +66,10 @@ run:
   max_epoch: 50
   num_workers: 6
   warmup_steps: 1000
-  iters_per_epoch: 100
+  iters_per_epoch: 1000
 
   seed: 42
-  output_dir: "../checkpoints/tumor_detection_balanced" #relative to ./minigpt4
+  output_dir: "../checkpoints/tumor_classification" #relative to ./minigpt4
 
   amp: True
   resume_ckpt_path: null
@@ -73,4 +83,4 @@ run:
   distributed: True
 
   wandb_log: True
-  job_name: tumor_det_batch_32_short_epochs
+  job_name: tumor_classification

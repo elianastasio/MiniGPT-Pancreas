@@ -8,9 +8,11 @@ In [configs/minigptp_finetune.yaml](train_configs/minigptp_finetune.yaml), you n
 
 llama_model checkpoint path: "Llama-2-7b-chat-hf"
 
-ckpt: "checkpoints/checkpoint_stage3.pth"
+ckpt: "checkpoints/checkpoint_stage3.pth" or any other .pth file.
 
-output_dir: "checkpoints/pancreas_detection"
+output_dir: "checkpoints/pancreas_detection" or any other path.
+
+Additionally, you need to include in [configs/minigptp_finetune.yaml](train_configs/minigptp_finetune.yaml) only the datasets you want to use for training.
 
 ```bash
 torchrun --nproc-per-node 1 train.py --cfg-path train_configs/minigptv2_finetune.yaml

@@ -22,7 +22,7 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 
-from minigpt4.datasets.datasets.vqa_datasets import VQADataset, VQAEvalDataset
+from minigpt4.datasets.datasets.vqa_datasets import VQADataset#, VQAEvalDataset
 from minigpt4.datasets.datasets.base_dataset import BaseDataset
 from minigpt4.datasets.datasets.caption_datasets import CaptionDataset
 
@@ -232,7 +232,7 @@ class __DisplMixin:
                 "image": sample["img_name"],
             }
         )
-
+'''
 class COCOVQAEvalDataset(VQAEvalDataset, __DisplMixin):
     def __init__(self, vis_processor, text_processor, vis_root, ann_paths):
         """
@@ -285,7 +285,7 @@ class COCOVQAEvalDataset(VQAEvalDataset, __DisplMixin):
             "instruction_input": instruction,
             "instance_id": ann["instance_id"],
         }
-
+'''
 class REFER_MSD:
     def __init__(self, ann_path, vis_root):
         self.data = self.load_data(ann_path)

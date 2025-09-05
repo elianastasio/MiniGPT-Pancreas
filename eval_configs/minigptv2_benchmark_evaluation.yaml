@@ -7,8 +7,9 @@ model:
   prompt_template: '[INST] {} [/INST]'
   llama_model: "../Llama-2-7b-chat-hf"
   #ckpt:  "../checkpoints/pancreas_detection/20250806153/checkpoint_49.pth"
-  ckpt: "../checkpoints/pancreas_detection/20250807085/checkpoint_0.pth" #pancreas_detection/"
-  ckpt_dir: "../checkpoints/tumor_detection/20250817195" #used by eval_ref_multiple
+  ckpt: "/home/mainardi/Elia/MiniGPT-Pancreas/checkpoints/tumor_classification/20250904153/checkpoint_0.pth"
+  #ckpt: "../checkpoints/pancreas_detection/20250807085/checkpoint_0.pth" #pancreas_detection/"
+  ckpt_dir: "../checkpoints/tumor_classification/20250904153" #used by eval_ref_multiple or eval_vqa_multiple
   lora_r: 64
   lora_alpha: 16
 
@@ -39,10 +40,15 @@ evaluation_datasets:
     img_path: ../datasets/MSD/slices
     max_new_tokens: 20
     batch_size: 16
+  TC:
+    eval_file_path: ../datasets/TC/annotations
+    img_path: ../datasets/TC/slices
+    max_new_tokens: 20
+    batch_size: 40
 run:
   task: image_text_pretrain
-  name: minigptvp_evaluation
-  save_path: ../results
+  name: minigptv2_evaluation
+  save_path: ../results/tumor_classification
 
   
 

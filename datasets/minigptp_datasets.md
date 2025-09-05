@@ -14,6 +14,7 @@ python MSD_save_slices.py          # to save slices as PNG images
 python MSD_tumor_generate_jsons.py # for tumor detection
 python MSD_tumor_save_slices.py
 ```
+**Note:** You can add the --balanced flag to the generate_jsons and save_slices scripts to add non-pancreas or non-tumor slices. Used for balanced training.
 
 ### NIH_PANCREAS
 
@@ -26,4 +27,14 @@ cd datasets/NIH/scripts
 python NIH_generate_slices_info.py # to extract info from 3D volumes
 python NIH_generate_jsons.py       # to generate JSON files for training and testing
 python NIH_save_slices.py          # to save slices as PNG images
+```
+**Note:** You can add the --balanced flag to the generate_jsons and save_slices scripts to add non-pancreas slices. Used for balanced training.
+
+### Tumor Classification
+
+**1.** Execute the follwing scripts in order to prepare the image-text pairs
+```bash
+cd datasets/TC/scripts
+python TC_generate_jsons.py       # to generate JSON files for training and testing
+python TC_save_slices.py          # to save slices as PNG images
 ```
