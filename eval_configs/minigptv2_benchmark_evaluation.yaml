@@ -9,7 +9,7 @@ model:
   #ckpt:  "../checkpoints/pancreas_detection/20250806153/checkpoint_49.pth"
   ckpt: "/home/mainardi/Elia/MiniGPT-Pancreas/checkpoints/tumor_classification/20250904153/checkpoint_0.pth"
   #ckpt: "../checkpoints/pancreas_detection/20250807085/checkpoint_0.pth" #pancreas_detection/"
-  ckpt_dir: "../checkpoints/tumor_classification/20250904153" #used by eval_ref_multiple or eval_vqa_multiple
+  ckpt_dir: "../checkpoints/tumor_detection/20250908144" #used by eval_ref_multiple or eval_vqa_multiple
   lora_r: 64
   lora_alpha: 16
 
@@ -48,7 +48,7 @@ evaluation_datasets:
 run:
   task: image_text_pretrain
   name: minigptv2_evaluation
-  save_path: ../results/tumor_classification
+  save_path: ../results/
 
   
 

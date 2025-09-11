@@ -6,7 +6,7 @@ def parse_log_file(filepath):
     results = {}
     current_task = None
     current_ckpt = None
-    current_dataset = None  # MSD, NIH, or Weighted
+    current_dataset = None
 
     with open(filepath, "r") as f:
         for line in f:

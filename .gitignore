@@ -1,5 +1,6 @@
 minigpt4_old/
 results/
+my_scripts/
 # Checkpoints
 checkpoints/
 checkpoints/pancreas_detection/

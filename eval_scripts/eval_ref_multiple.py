@@ -134,7 +134,8 @@ for checkpoint in ckpt_files:
         evaluate(
             timestamp=timestamp,
             task_name="pancreas_detection",
-            checkpoint=checkpoint
+            checkpoint=checkpoint,
+            save_path=save_path
         )
 
     if 'pancreas_detection_balanced' in args.tasks:
@@ -218,7 +219,8 @@ for checkpoint in ckpt_files:
         evaluate(
             timestamp=timestamp,
             task_name="pancreas_detection_balanced",
-            checkpoint=checkpoint
+            checkpoint=checkpoint,
+            save_path=save_path
         )
 
     if 'tumor_detection' in args.tasks:
@@ -263,7 +265,8 @@ for checkpoint in ckpt_files:
         evaluate(
             timestamp=timestamp,
             task_name="tumor_detection",
-            checkpoint=checkpoint
+            checkpoint=checkpoint,
+            save_path=save_path
         )
 
     if 'tumor_detection_balanced' in args.tasks:
@@ -309,7 +312,8 @@ for checkpoint in ckpt_files:
         evaluate(
             timestamp=timestamp,
             task_name="tumor_detection_balanced",
-            checkpoint=checkpoint
+            checkpoint=checkpoint,
+            save_path=save_path
         )
     print("Freeing up cache")
     del model

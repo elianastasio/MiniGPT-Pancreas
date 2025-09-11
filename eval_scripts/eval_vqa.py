@@ -36,35 +36,35 @@ conv_temp.system = ""
 model.eval()
 save_path = cfg.run_cfg.save_path
 
-if 'TC' in args.dataset:
 
-    eval_file_path = cfg.evaluation_datasets_cfg["TC"]["eval_file_path"]
-    img_path = cfg.evaluation_datasets_cfg["TC"]["img_path"]
-    batch_size = cfg.evaluation_datasets_cfg["TC"]["batch_size"]
-    max_new_tokens = cfg.evaluation_datasets_cfg["TC"]["max_new_tokens"]
-    
 
-    evaluation_annntation_path = os.path.join(eval_file_path, "TC_test.json")
-    with open(evaluation_annntation_path) as f:
-        TC_test_split = json.load(f)
+eval_file_path = cfg.evaluation_datasets_cfg["TC"]["eval_file_path"]
+img_path = cfg.evaluation_datasets_cfg["TC"]["img_path"]
+batch_size = cfg.evaluation_datasets_cfg["TC"]["batch_size"]
+max_new_tokens = cfg.evaluation_datasets_cfg["TC"]["max_new_tokens"]
 
-    data = TCEvalData(TC_test_split, vis_processor, img_path)
-    eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
-    minigptp_predict = []
 
-    for images, questions, question_ids, img_ids in eval_dataloader:
-        texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
-        answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+evaluation_annntation_path = os.path.join(eval_file_path, "TC_test.json")
+with open(evaluation_annntation_path) as f:
+    TC_test_split = json.load(f)
 
-        for answer, question_id, question, img_id in zip(answers, question_ids, questions, img_ids):
-            result = dict()
-            answer = answer.lower().replace('<unk>','').strip()
-            result['answer'] = answer
-            result['question_id'] = int(question_id)
-            minigptp_predict.append(result)
+data = TCEvalData(TC_test_split, vis_processor, img_path)
+eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+minigptp_predict = []
 
-    os.makedirs(save_path, exist_ok=True)
-    file_save_path= os.path.join(save_path,"TC_predictions.json")
-    with open(file_save_path,'w') as f:
-        json.dump(minigptp_predict, f)
-    print ("Finished evaluating on TC, json output:", file_save_path)
+for images, questions, question_ids, img_ids in eval_dataloader:
+    texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+    answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+
+    for answer, question_id, question, img_id in zip(answers, question_ids, questions, img_ids):
+        result = dict()
+        answer = answer.lower().replace('<unk>','').strip()
+        result['answer'] = answer
+        result['question_id'] = int(question_id)
+        minigptp_predict.append(result)
+
+os.makedirs(save_path, exist_ok=True)
+file_save_path= os.path.join(save_path,"TC_predictions.json")
+with open(file_save_path,'w') as f:
+    json.dump(minigptp_predict, f)
+print ("Finished evaluating on TC, json output:", file_save_path)
