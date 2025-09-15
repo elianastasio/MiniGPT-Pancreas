@@ -5,14 +5,14 @@ model:
   image_size: 448
   end_sym: "</s>"
   llama_model: "Llama-2-7b-chat-hf"
-  ckpt: "checkpoints/tumor_classification/20250904153/checkpoint_23.pth" #/pancreas_detection/20250806153/checkpoint_11.pth"
+  ckpt: "checkpoints/checkpoint_stage3.pth" #/pancreas_detection/20250806153/checkpoint_11.pth"
   use_grad_checkpoint: True
   chat_template: True
   lora_r: 64
   lora_alpha: 16
 
 datasets:
-  MSD_tumor_detection: #MSD_pancreas_detection:
+  ABD:
     batch_size: 16
     vis_processor:
       train:
@@ -22,6 +22,16 @@ datasets:
       train:
         name: "blip_caption"
     sample_ratio: 100
+  #MSD_tumor_detection: #MSD_pancreas_detection:
+  #  batch_size: 16
+  #  vis_processor:
+  #    train:
+  #      name: "blip2_image_train"
+  #      image_size: 448
+  #  text_processor:
+  #    train:
+  #      name: "blip_caption"
+  #  sample_ratio: 100
   #MSD_pancreas_detection: #MSD_pancreas_detection_balanced:
   #  batch_size: 16
   #  vis_processor:
@@ -69,7 +79,7 @@ run:
   iters_per_epoch: 1000
 
   seed: 42
-  output_dir: "../checkpoints/tumor_detection" #relative to ./minigpt4
+  output_dir: "../checkpoints/ABD" #relative to ./minigpt4
 
   amp: True
   resume_ckpt_path: null
@@ -82,5 +92,5 @@ run:
   dist_url: "env://"
   distributed: True
 
-  wandb_log: True
-  job_name: tumor_detection
+  wandb_log: False
+  job_name: ABD

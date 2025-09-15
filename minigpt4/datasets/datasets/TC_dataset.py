@@ -42,8 +42,8 @@ class TCDataset(VQADataset):
             image_path = os.path.join("datasets/TC/slices",image_name)
             if os.path.exists(image_path):
                 exist_annotation.append(ann)
-            else:#elia
-                raise FileNotFoundError(f"Image not found at path: {image_path}")#Elia
+            else:
+                raise FileNotFoundError(f"Image not found at path: {image_path}")
         self.annotation = exist_annotation
 
 
@@ -76,20 +76,7 @@ class TCDataset(VQADataset):
         question = random.choice(self.question_pool)
         #question = self.text_processor(ann["question"])
         question_id = ann["q_id"]
-
-        #answer_weight = {}
-        #for answer in ann["answer"]:
-        #    if answer in answer_weight.keys():
-        #        answer_weight[answer] += 1 / len(ann["answer"])
-        #    else:
-        #        answer_weight[answer] = 1 / len(ann["answer"])
-
-        #answers = list(answer_weight.keys())
-        #weights = list(answer_weight.values())
-
-        #answer = random.choices(answers, weights=weights, k=1)[0]  # random sample an answer according to weights
         answer = ann["answer"]
-        #print("q_id: ",question_id," ,question:", question,"answer: ", answer) #elia
 
         return {
             "image": image,

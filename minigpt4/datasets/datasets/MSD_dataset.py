@@ -308,7 +308,6 @@ class REFER_MSD:
             item['sents'] = 'pancreas'
             slice_index = str(item['slice_index'])
             img_id = item['volume_name'].strip('.nii.gz')+'_slice_'+slice_index+'.png'
-            #img_id = item['image_name'].replace('.nii.gz', '_slice_adjusted.png')#elia: poiché il json ha i nomi originali delle immagini 3d
             ann_id = img_id + '_' + item['sents']  # Using image id + sentence as annotation id
             self.Imgs[img_id] = {'id': img_id, 'height': item['height'], 'width': item['width']}
             self.Cats[item['sents']] = item['sents']
@@ -405,7 +404,6 @@ class REFER_MSD_tumor:
             item['sents'] = 'pancreatic tumor'
             slice_index = str(item['slice_index'])
             img_id = item['volume_name'].strip('.nii.gz')+'_slice_'+slice_index+'.png'
-            #img_id = item['image_name'].replace('.nii.gz', '_slice_adjusted.png')#elia: poiché il json ha i nomi originali delle immagini 3d
             ann_id = img_id + '_' + item['sents']  # Using image id + sentence as annotation id
             self.Imgs[img_id] = {'id': img_id, 'height': item['height'], 'width': item['width']}
             self.Cats[item['sents']] = item['sents']

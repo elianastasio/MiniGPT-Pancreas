@@ -147,6 +147,133 @@ def evaluate_single_dataset(gt_file, pred_file, dataset_name, balanced=False, re
 
     return result
 
+def evaluate_datasets_ABD(datasets, balanced=False, scale_factor=5.12):
+    all_results = []
+    total_samples = 0
+    organs = ["liver", "kidney", "spleen", "pancreas"]
+
+    organ_metrics = {
+        organ: {
+            "num_samples": 0,
+            "detection_accuracy": 0,
+            "avg_iou": 0,
+            "avg_dsc": 0,
+            "bad_answers": 0,
+            "missing_predictions": [],
+            "invalid_predictions": []
+        } for organ in organs
+    }
+
+    if balanced:
+        for organ in organs:
+            organ_metrics[organ].update({
+                "TP": 0, "TN": 0, "FP": 0, "FN": 0,
+                "classification_accuracy": 0,
+                "precision": 0,
+                "recall": 0,
+                "f1": 0
+            })
+
+    for ds in datasets:
+        with open(ds['gt_file'], 'r') as f:
+            gt_data = json.load(f)
+        with open(ds['pred_file'], 'r') as f:
+            pred_data = json.load(f)
+
+        pred_data = {int(k): v for k, v in pred_data.items()}
+
+        for organ in organs:
+            organ_samples = [item for item in gt_data if item['organ'] == organ]
+            n = len(organ_samples)
+            total_samples += n
+            organ_metrics[organ]["num_samples"] += n
+
+            count = total_iou = total_dsc = iou_count = 0
+            bad_answers = 0
+            invalid_predictions = []
+            missing_predictions = []
+
+            TP = FP = TN = FN = 0
+
+            for item in organ_samples:
+                q_id = item['q_id']
+                gt_bbox = item['bbox']
+                output = pred_data.get(q_id)
+
+                if not output:
+                    bad_answers += 1
+                    missing_predictions.append(q_id)
+                    continue
+
+                pred_bbox = parse_pred_bbox(output)
+                if pred_bbox is None:
+                    bad_answers += 1
+                    invalid_predictions.append(q_id)
+                    continue
+
+                pred_bbox = [coord * scale_factor for coord in pred_bbox]
+
+                gt_is_zero = is_zero_bbox(gt_bbox)
+                pred_is_zero = is_zero_bbox(pred_bbox)
+
+                if balanced:
+                    if not gt_is_zero and not pred_is_zero:
+                        TP += 1
+                    elif gt_is_zero and pred_is_zero:
+                        TN += 1
+                    elif gt_is_zero and not pred_is_zero:
+                        FP += 1
+                    elif not gt_is_zero and pred_is_zero:
+                        FN += 1
+
+                if not pred_is_zero or not gt_is_zero:
+                    iou = computeIoU(pred_bbox, gt_bbox)
+                    dsc = computeDSC(pred_bbox, gt_bbox)
+                    if iou >= 0.5:
+                        count += 1
+                    total_iou += iou
+                    total_dsc += dsc
+                    iou_count += 1
+
+            organ_metrics[organ]["detection_accuracy"] += (count / n * 100) if n > 0 else 0
+            organ_metrics[organ]["avg_iou"] += (total_iou / iou_count * 100) if iou_count > 0 else 0
+            organ_metrics[organ]["avg_dsc"] += (total_dsc / iou_count * 100) if iou_count > 0 else 0
+            organ_metrics[organ]["bad_answers"] += bad_answers
+            organ_metrics[organ]["missing_predictions"].extend(missing_predictions)
+            organ_metrics[organ]["invalid_predictions"].extend(invalid_predictions)
+
+            if balanced and n > 0:
+                acc_cls = (TP + TN) / (TP + TN + FP + FN) if (TP + TN + FP + FN) > 0 else 0
+                prec = TP / (TP + FP) if (TP + FP) > 0 else 0
+                rec = TP / (TP + FN) if (TP + FN) > 0 else 0
+                f1 = 2 * (prec * rec) / (prec + rec) if (prec + rec) > 0 else 0
+                organ_metrics[organ]["classification_accuracy"] += acc_cls * 100
+                organ_metrics[organ]["precision"] += prec * 100
+                organ_metrics[organ]["recall"] += rec * 100
+                organ_metrics[organ]["f1"] += f1 * 100
+                organ_metrics[organ]["TP"] += TP
+                organ_metrics[organ]["TN"] += TN
+                organ_metrics[organ]["FP"] += FP
+                organ_metrics[organ]["FN"] += FN
+
+    for organ in organs:
+        res = organ_metrics[organ]
+        res["dataset"] = organ
+        all_results.append(res)
+
+    weighted_metrics = {k: 0 for k in ["detection_accuracy", "avg_iou", "avg_dsc"]}
+    if balanced:
+        for k in ["classification_accuracy", "precision", "recall", "f1"]:
+            weighted_metrics[k] = 0
+
+    for organ in organs:
+        n = organ_metrics[organ]["num_samples"]
+        for key in weighted_metrics:
+            weighted_metrics[key] += organ_metrics[organ][key] * n / total_samples if total_samples > 0 else 0
+
+    return all_results, weighted_metrics, total_samples
+
+
 def evaluate_datasets(datasets, balanced=False):
     all_results = []
     total_samples = 0
@@ -289,6 +416,22 @@ def evaluate(timestamp, task_name, checkpoint, res=100.0, save_path='../results'
         log_results(os.path.join(save_path, 'logs'), timestamp, task_name, results_str)
         #print(f"Results saved in {log_file_path}")
     
+    if task_name == 'ABD':
+        balanced = False
+        # Define dataset info
+        datasets = [
+            {
+                'name': 'ABD',
+                'gt_file': '../datasets/ABD/annotations/ABD_test.json',
+                'pred_file': os.path.join(save_path, 'ABD', f'ABD_{timestamp}.json')
+            }
+        ]
+        #print(f"pred file: {datasets}")
+        all_results, weighted_metrics, total_samples = evaluate_datasets_ABD(datasets, balanced=balanced)
+        results_str = format_result_string(task_name, checkpoint, all_results, weighted_metrics, total_samples, balanced)
+        log_results(os.path.join(save_path, 'logs'), timestamp, task_name, results_str)
+        #print(f"Results saved in {log_file_path}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", required=True, help="Task name")

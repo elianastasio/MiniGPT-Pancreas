@@ -24,8 +24,6 @@ class MultiIterLoader:
     def __init__(self, loaders, ratios=None):
         # assert all loaders has __next__ method
         for loader in loaders:
-            #methods = [method for method in dir(loader) if callable(getattr(loader, method))] #elia
-            #print("Elia, metodi di loader: ", methods)#elia
             assert hasattr(
                 loader, "__next__"
             ), "Loader {} has no __next__ method.".format(loader)

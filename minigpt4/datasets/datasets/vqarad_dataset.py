@@ -45,8 +45,8 @@ class VQARADDataset(VQADataset, __DisplMixin):
             image_path = os.path.join(self.vis_root, ann["image_name"])
             if os.path.exists(image_path):
                 exist_annotation.append(ann)
-            else:#elia
-                raise FileNotFoundError(f"Image not found at path: {image_path}")#Elia
+            else:
+                raise FileNotFoundError(f"Image not found at path: {image_path}")
         self.annotation = exist_annotation
 
 
@@ -60,17 +60,6 @@ class VQARADDataset(VQADataset, __DisplMixin):
         question = self.text_processor(ann["question"])
         question_id = ann["qid"]
 
-        #answer_weight = {}
-        #for answer in ann["answer"]:
-        #    if answer in answer_weight.keys():
-        #        answer_weight[answer] += 1 / len(ann["answer"])
-        #    else:
-        #        answer_weight[answer] = 1 / len(ann["answer"])
-
-        #answers = list(answer_weight.keys())
-        #weights = list(answer_weight.values())
-
-        #answer = random.choices(answers, weights=weights, k=1)[0]  # random sample an answer according to weights
         answer = ann["answer"]
 
 
@@ -82,7 +71,7 @@ class VQARADDataset(VQADataset, __DisplMixin):
         }
 
     def __getitem__(self, index):          
-        data = self.get_data(index) #elia: modificate risposte in caption righe 2234 e 2235 (anche altre righe, cerca question": 4 o 2)
+        data = self.get_data(index) 
         instruction = random.choice(self.instruction_pool).format(data['question'])
         instruction = "<Img><ImageHere></Img> {} ".format(instruction)
 

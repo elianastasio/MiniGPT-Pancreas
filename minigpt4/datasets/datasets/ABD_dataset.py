@@ -1,9 +1,3 @@
-"""
- Copyright (c) 2022, salesforce.com, inc.
- All rights reserved.
- SPDX-License-Identifier: BSD-3-Clause
- For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
-"""
 import os
 import json
 import pickle
@@ -19,13 +13,39 @@ from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon, Rectangle
 import webdataset as wds
 from PIL import Image
+import torch
 from torch.utils.data import Dataset
 
 from minigpt4.datasets.datasets.vqa_datasets import VQADataset#, VQAEvalDataset
 from minigpt4.datasets.datasets.base_dataset import BaseDataset
 from minigpt4.datasets.datasets.caption_datasets import CaptionDataset
 
-class ReferAbd1kPancreasDataset(Dataset):
+class ABDEvalData(torch.utils.data.Dataset):
+    def __init__(self, loaded_data, vis_processor, root_path):
+        self.loaded_data = loaded_data
+        self.root_path = root_path
+        self.vis_processor = vis_processor
+
+    def __len__(self):
+        return len(self.loaded_data)
+    
+    def __getitem__(self, idx):
+        data = self.loaded_data[idx]
+        q_id = data['q_id']
+        volume_name = str(data['volume_name'])
+        slice_index = str(data['slice_index'])
+        image_name = f"{volume_name.strip('.nii.gz')}_slice_{slice_index}.png"
+        
+        sent = str(data['organ'])
+        image_path = os.path.join(self.root_path, f"{image_name}")
+
+        image = Image.open(image_path).convert('RGB')
+        image = self.vis_processor(image)
+        question = f"[refer] give me the location of the {sent}"
+        return image, question, q_id
+
+
+class ReferABDDataset(Dataset):
     def __init__(self, vis_processor, text_processor, vis_root, ann_path, dataset='refcoco', splitBy='unc'):
         """
         vis_root (string): Root directory of images (e.g. coco/images/)
@@ -36,7 +56,7 @@ class ReferAbd1kPancreasDataset(Dataset):
         self.vis_processor = vis_processor
         self.text_processor = text_processor
 
-        self.refer = REFER_Abd1k(ann_path, vis_root)
+        self.refer = REFER_ABD(ann_path, vis_root)
         self.ref_ids = self.refer.getRefIds(split="train")
 
         self.instruction_pool = [
@@ -56,14 +76,7 @@ class ReferAbd1kPancreasDataset(Dataset):
     def preprocess(self, index):
         ref_id = self.ref_ids[index]
         ref = self.refer.loadRefs(ref_id)[0]
-
-        #print("Keys in ref dictionary:", ref.keys())#elia
-        #print("Elia, ref_id: ", ref['ref_id'])
-        #print("Elia, ann_id: ", ref['ann_id'])
-        #print("Elia, sentences: ", ref['sentences'])
         image_file = ref["ref_id"]
-        #print("ELia, image file:", image_file, "type:", type(image_file))
-        #image_file = image_file.lower()
 
         image_path = os.path.join(self.vis_root, image_file)
         image = Image.open(image_path).convert("RGB")
@@ -72,25 +85,19 @@ class ReferAbd1kPancreasDataset(Dataset):
         image_new_size = [image.shape[1], image.shape[2]]
 
         image_new_size = [100,100]
-
-        #sample_sentence = random.choice(ref['sentences'])['raw']
-        sample_sentence = ref['sentences'][0]['sent']#eliamodifica, is always pancreas
-        #print("Elia: sample_sentence: ", sample_sentence)#elia
+        sample_sentence = ref['sentences'][0]['sent']
 
         refer_sentence = self.text_processor(sample_sentence)
-        #print("Elia: refer_sentence: ", refer_sentence)#elia, is always pancreas
 
         bbox = self.refer.getRefBox(ref['ref_id'])
-        #print("Elia, output of getRefBox: ", bbox)
         bbox = [
             bbox[0] / image_orig_size[0] * image_new_size[0],
             bbox[1] / image_orig_size[1] * image_new_size[1],
-            bbox[2] / image_orig_size[0] * image_new_size[0],#elia: modified because the code thought i gave it x_left, y_top, width, height
-            bbox[3] / image_orig_size[1] * image_new_size[1]#same as above
+            bbox[2] / image_orig_size[0] * image_new_size[0],
+            bbox[3] / image_orig_size[1] * image_new_size[1]
         ]
         bbox = [int(x) for x in bbox]
         bbox = "{{<{}><{}><{}><{}>}}".format(*bbox)
-        #print("Elia, formatted bBox: ", bbox)
         return {
             "image": image,
             "refer_sentence": refer_sentence,
@@ -112,6 +119,54 @@ class ReferAbd1kPancreasDataset(Dataset):
         }
 
 
+    def __len__(self):
+        return len(self.ref_ids)
+
+    def preprocess(self, index):
+        ref_id = self.ref_ids[index]
+        ref = self.refer.loadRefs(ref_id)[0]
+        image_file = ref["ref_id"]
+
+        image_path = os.path.join(self.vis_root, image_file)
+        image = Image.open(image_path).convert("RGB")
+        image_orig_size = image.size
+        image = self.vis_processor(image)
+        image_new_size = [image.shape[1], image.shape[2]]
+
+        image_new_size = [100,100]
+        sample_sentence = ref['sentences'][0]['sent']
+
+        refer_sentence = self.text_processor(sample_sentence)
+
+        bbox = self.refer.getRefBox(ref['ref_id'])
+        bbox = [
+            bbox[0] / image_orig_size[0] * image_new_size[0],
+            bbox[1] / image_orig_size[1] * image_new_size[1],
+            bbox[2] / image_orig_size[0] * image_new_size[0],
+            bbox[3] / image_orig_size[1] * image_new_size[1]
+        ]
+        bbox = [int(x) for x in bbox]
+        bbox = "{{<{}><{}><{}><{}>}}".format(*bbox)
+        return {
+            "image": image,
+            "refer_sentence": refer_sentence,
+            "bbox": bbox,
+            "img": ref['ref_id'],
+        }
+
+    def __getitem__(self, index):
+        data = self.preprocess(index)
+        instruction = random.choice(self.instruction_pool).format(data['refer_sentence'])
+
+        instruction = "<Img><ImageHere></Img> {} ".format(instruction)
+
+        return {
+            "image": data['image'],
+            "instruction_input": instruction,
+            "answer": data['bbox'],
+            "img_id": data['img'],
+        }
+
 class __DisplMixin:
     def displ_item(self, index):
         sample, ann = self.__getitem__(index), self.annotation[index]
@@ -125,61 +180,7 @@ class __DisplMixin:
                 "image": sample["img_name"],
             }
         )
-'''
-class COCOVQAEvalDataset(VQAEvalDataset, __DisplMixin):
-    def __init__(self, vis_processor, text_processor, vis_root, ann_paths):
-        """
-        vis_root (string): Root directory of images (e.g. coco/images/)
-        ann_root (string): directory to store the annotation file
-        """
-        
-        self.instruction_pool = [
-            'Question: {} Short answer:',
-        ]
-        self.vis_root = vis_root
-
-        self.annotation = json.load(open(ann_paths[0]))
-
-        answer_list_path = ann_paths[1]
-        if os.path.exists(answer_list_path):
-            self.answer_list = json.load(open(answer_list_path))
-        else:
-            self.answer_list = None
-
-        try:
-            self.coco_fmt_qust_file = ann_paths[2]
-            self.coco_fmt_anno_file = ann_paths[3]
-        except IndexError:
-            self.coco_fmt_qust_file = None
-            self.coco_fmt_anno_file = None
-
-        self.vis_processor = vis_processor
-        self.text_processor = text_processor
-
-        self._add_instance_ids()
-
-    def __getitem__(self, index):
-        ann = self.annotation[index]
-
-        image_path = os.path.join(self.vis_root, ann["image"])
-        image = Image.open(image_path).convert("RGB")
-
-        image = self.vis_processor(image)
-        question = self.text_processor(ann["question"])
-        
-        instruction = random.choice(self.instruction_pool).format(question)
-        instruction = "<Img><ImageHere></Img> {} ".format(instruction)
-        
-        return {
-            "image": image,
-            'image_path': image_path,
-            "question": question,
-            "question_id": ann["question_id"],
-            "instruction_input": instruction,
-            "instance_id": ann["instance_id"],
-        }
-'''
-class REFER_Abd1k:
+class REFER_ABD:
     def __init__(self, ann_path, vis_root):
         self.data = self.load_data(ann_path)
         self.createIndex()
@@ -196,11 +197,11 @@ class REFER_Abd1k:
         self.Anns = {}
         self.Imgs = {}
         self.Cats = {}
+        
         for item in self.data:
-            #slice_index = str(item['slice_index'])
-            img_id = item['slice_filename']
-            #img_id = item['image_name']+'_slice_'+slice_index+'.png'
-            #img_id = item['image_name'].replace('.nii.gz', '_slice_adjusted.png')#elia: poiché il json ha i nomi originali delle immagini 3d
+            item['sents'] = str(item['organ'])
+            slice_index = str(item['slice_index'])
+            img_id = item['volume_name'].strip('.nii.gz')+'_slice_'+slice_index+'.png'
             ann_id = img_id + '_' + item['sents']  # Using image id + sentence as annotation id
             self.Imgs[img_id] = {'id': img_id, 'height': item['height'], 'width': item['width']}
             self.Cats[item['sents']] = item['sents']

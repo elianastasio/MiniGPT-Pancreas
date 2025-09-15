@@ -104,7 +104,6 @@ class RunnerBase:
             for n, p in self.model.named_parameters():
                 if not p.requires_grad:
                     continue  # frozen weights
-                #print(n) #elia commentato per pulire prompts
                 if p.ndim < 2 or "bias" in n or "ln" in n or "bn" in n:
                     p_non_wd.append(p)
                 else:
@@ -341,12 +340,6 @@ class RunnerBase:
 
         return train_dataloader
 
-    #elia
-    #@property
-    #def validation_loader(self):
-    #    validation_dataloader = self.dataloaders["validation"]
-    #    return validation_dataloader
-    # fine elia
 
     def setup_output_dir(self):
         lib_root = Path(registry.get_path("library_root"))
@@ -407,7 +400,7 @@ class RunnerBase:
 
             else:
                 # if no validation split is provided, we just save the checkpoint at the end of each epoch.
-                if not self.evaluate_only: # and cur_epoch % 2 != 0: #elia modificato save frequency
+                if not self.evaluate_only:
                     self._save_checkpoint(cur_epoch, is_best=False)
 
             if self.evaluate_only:
@@ -464,7 +457,6 @@ class RunnerBase:
                 During testing, we will use provided weights and skip reloading the best checkpoint .
         """
         data_loader = self.dataloaders.get(split_name, None)
-        print("Elia, entrato in eval_epoch: ", data_loader) #elia
         assert data_loader, "data_loader for split {} is None.".format(split_name)
 
         # TODO In validation, you need to compute loss as well as metrics
@@ -507,13 +499,9 @@ class RunnerBase:
         """
 
         def _create_loader(dataset, num_workers, bsz, is_train, collate_fn):
-            #print("Elia in runner_base, creating loader for: ", dataset, ", is_train: ", is_train)
-            # create a single dataloader for each split
             if isinstance(dataset, ChainDataset) or isinstance(
                 dataset, wds.DataPipeline
             ):
-                # wds.WebdDataset instance are chained together
-                # webdataset.DataPipeline has its own sampler and collate_fn
                 loader = iter(
                     DataLoader(
                         dataset,
@@ -523,11 +511,8 @@ class RunnerBase:
                     )
                 )
             else:
-                # map-style dataset are concatenated together
-                # setup distributed sampler
 
                 if self.use_distributed:
-                    #print("dentro if self.use_distributed")#Elia
                     sampler = DistributedSampler(
                         dataset,
                         shuffle=is_train,
@@ -535,11 +520,9 @@ class RunnerBase:
                         rank=get_rank(),
                     )
                     if not self.use_dist_eval_sampler:
-                        #print("dentro if not self.use_dist_eval_sampler:")#Elia
                         # e.g. retrieval evaluation
                         sampler = sampler if is_train else None
                 else:
-                    print("dentroelse sampler = none")#Elia
                     sampler = None
 
                 loader = DataLoader(
@@ -559,7 +542,6 @@ class RunnerBase:
             return loader
 
         loaders = []
-        #print("Elia: prima di creare loaders, datasets: ", datasets)
         for dataset, bsz, is_train, collate_fn in zip(
             datasets, batch_sizes, is_trains, collate_fns
         ):

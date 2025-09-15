@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from minigpt4.common.config import Config
 from minigpt4.common.eval_utils import prepare_texts, init_model, eval_parser, computeIoU, computeDSC
 from minigpt4.conversation.conversation import CONV_VISION_minigptv2
-#from minigpt4.datasets.datasets.coco_caption import RefAbd1kPancreasEvalData, RefMSDTumorEvalData
+from minigpt4.datasets.datasets.ABD_dataset import ABDEvalData
 from minigpt4.datasets.datasets.MSD_dataset import RefMSDPancreasEvalData, RefMSDTumorEvalData
 from minigpt4.datasets.datasets.TCIA_dataset import RefTCIAPancreasEvalData
 from evaluate_predictions import evaluate
@@ -315,6 +315,54 @@ for checkpoint in ckpt_files:
             checkpoint=checkpoint,
             save_path=save_path
         )
+    
+    if 'ABD' in args.tasks:
+        ABD = "ABD"
+        annotation_name = "ABD_test.json"
+
+        eval_file_path = cfg.evaluation_datasets_cfg[ABD]["eval_file_path"]
+        img_path = cfg.evaluation_datasets_cfg[ABD]["img_path"]
+        batch_size = cfg.evaluation_datasets_cfg[ABD]["batch_size"]
+        max_new_tokens = cfg.evaluation_datasets_cfg[ABD]["max_new_tokens"]  
+
+        with open(os.path.join(eval_file_path, annotation_name), 'r') as f:
+            ABD_data = json.load(f)
+
+        data = ABDEvalData(ABD_data, vis_processor, img_path) #return image, question, img_id
+        eval_dataloader = DataLoader(data, batch_size=batch_size, shuffle=False)
+        minigpt4_predict = defaultdict(list)
+        resamples = []
+        bad_answer_list = []
+        bad_answers = 0
+
+        for images, questions, q_ids in tqdm(eval_dataloader):
+            texts = prepare_texts(questions, conv_temp)  # warp the texts with conversation template
+            answers = model.generate(images, texts, max_new_tokens=max_new_tokens, do_sample=False)
+            for answer, q_id, question in zip(answers, q_ids, questions):
+                q_id_int = int(q_id)
+                answer = answer.replace("<unk>","").replace(" ","").strip()
+                pattern = r'\{<\d{1,3}><\d{1,3}><\d{1,3}><\d{1,3}>\}'
+                if re.match(pattern, answer):
+                    minigpt4_predict[q_id_int].append(answer)
+                else:
+                    bad_answers += 1
+                    bad_answer_list.append({'q_id': q_id_int, 'answer': answer})
+                    resamples.append({'q_id': q_id_int, 'sents': [question.replace('[refer] Where is the','').strip()]}) 
+        
+        file_save_path = os.path.join(save_path,"ABD",f"ABD_{timestamp}.json")    
+        #log_save_path = os.path.join(save_path,"tumor_detection_balanced",f"MSD_tumor_detection_balanced_{timestamp}.log")
+
+        os.makedirs(os.path.join(save_path, "ABD"), exist_ok=True)
+        with open(file_save_path,'w') as f:
+            json.dump(minigpt4_predict, f)
+        
+        evaluate(
+            timestamp=timestamp,
+            task_name="ABD",
+            checkpoint=checkpoint,
+            save_path=save_path
+        )
+
     print("Freeing up cache")
     del model
     torch.cuda.empty_cache()

@@ -1,8 +1,0 @@
-datasets:
-  Abd1k_ref:
-    data_type: images
-    build_info:
-      image_path: ../../Data/Abd1k/Abd1k_pancreas_train
-      ann_path: ../../Data/Abd1k/Annotations/Abd1k_pancreas_train_shortened.json
-      dataset: Abd1k_ref
-      splitBy: unc

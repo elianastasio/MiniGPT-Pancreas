@@ -140,8 +140,6 @@ class ROCOCaptionDataset(BaseDataset, __DisplMixin):
         self.filter_anntation = []
         
         for ann in self.annotation:
-            #print("elia - caption_dataset.py, annotation:", ann)#elia
-            #if "train" in ann["image"]: #elia: tolto if poichè per adesso considero tutte le immagini come parte di train
             self.filter_anntation.append(ann)
         self.annotation = self.filter_anntation
 
@@ -162,7 +160,7 @@ class ROCOCaptionDataset(BaseDataset, __DisplMixin):
         # TODO this assumes image input, not general enough
         ann = self.annotation[index]
 
-        img_file = ann["image_id"] + ".jpg" #img_file = ann["image"].split("/")[-1] # elia: cambiato vistoche non ho "image" nelle annotazioni
+        img_file = ann["image_id"] + ".jpg"
         image_path = os.path.join(self.vis_root, img_file)
         image = Image.open(image_path).convert("RGB")
 
@@ -192,7 +190,6 @@ class ROCOv2CaptionTrainDataset(BaseDataset, __DisplMixin):
         self.filter_anntation = []
         
         for ann in self.annotation:
-            #print("elia - caption_dataset.py, annotation:", ann)#elia
             if "train" in ann["image_id"]:
                 self.filter_anntation.append(ann)
         self.annotation = self.filter_anntation
@@ -214,7 +211,7 @@ class ROCOv2CaptionTrainDataset(BaseDataset, __DisplMixin):
         # TODO this assumes image input, not general enough
         ann = self.annotation[index]
 
-        img_file = ann["image_id"] + ".jpg" #img_file = ann["image"].split("/")[-1] # elia: cambiato vistoche non ho "image" nelle annotazioni
+        img_file = ann["image_id"] + ".jpg"
         image_path = os.path.join(self.vis_root, img_file)
         image = Image.open(image_path).convert("RGB")
 
@@ -244,7 +241,6 @@ class ROCOv2CaptionEvalDataset(BaseDataset, __DisplMixin):
         self.filter_anntation = []
         
         for ann in self.annotation:
-            #print("elia - caption_dataset.py, annotation:", ann)#elia
             if "valid" in ann["image_id"]:
                 self.filter_anntation.append(ann)
         self.annotation = self.filter_anntation
@@ -266,7 +262,7 @@ class ROCOv2CaptionEvalDataset(BaseDataset, __DisplMixin):
         # TODO this assumes image input, not general enough
         ann = self.annotation[index]
 
-        img_file = ann["image_id"] + ".jpg" #img_file = ann["image"].split("/")[-1] # elia: cambiato vistoche non ho "image" nelle annotazioni
+        img_file = ann["image_id"] + ".jpg"
         image_path = os.path.join(self.vis_root, img_file)
         image = Image.open(image_path).convert("RGB")
 
@@ -296,8 +292,6 @@ class OpeniCaptionDataset(BaseDataset, __DisplMixin):
         self.filter_anntation = []
         
         for ann in self.annotation:
-            #print("Elia; openi annotations: ", ann)
-            #if "train" in ann["image_id"]:
             self.filter_anntation.append(ann)
         self.annotation = self.filter_anntation
 
@@ -317,7 +311,7 @@ class OpeniCaptionDataset(BaseDataset, __DisplMixin):
 
         # TODO this assumes image input, not general enough
         ann = self.annotation[index]
-        img_file = ann["image_id"] + ".png" #img_file = ann["image"].split("/")[-1] # elia: cambiato vistoche non ho "image" nelle annotazioni
+        img_file = ann["image_id"] + ".png"
         image_path = os.path.join(self.vis_root, img_file)
         image = Image.open(image_path).convert("RGB")
 

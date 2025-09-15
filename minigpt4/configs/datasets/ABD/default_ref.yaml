@@ -1,0 +1,8 @@
+datasets:
+  ABD:
+    data_type: images
+    build_info:
+      image_path: datasets/ABD/slices
+      ann_path: datasets/ABD/annotations/ABD_train.json
+      dataset: ABD
+      splitBy: unc

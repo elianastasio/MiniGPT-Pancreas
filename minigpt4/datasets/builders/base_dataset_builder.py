@@ -113,7 +113,6 @@ class BaseDatasetBuilder:
             info = anns[split]
 
             urls, storage_paths = info.get("url", None), info.storage
-            #print("storage_paths: ", storage_paths) #elia
             if isinstance(urls, str):
                 urls = [urls]
             if isinstance(storage_paths, str):
@@ -208,7 +207,7 @@ class BaseDatasetBuilder:
             ann_paths = abs_ann_paths
 
             # visual data storage path
-            vis_path = vis_info.storage #vis_path = os.path.join(vis_info.storage, split) #elia: tolto il fatto che aggiunge /train alla fine per TC_msd_and_tcia
+            vis_path = vis_info.storage
 
             if not os.path.isabs(vis_path):
                 # vis_path = os.path.join(utils.get_cache_path(), vis_path)

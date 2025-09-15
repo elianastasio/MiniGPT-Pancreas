@@ -2,8 +2,6 @@
 
 <font size='5'>**MiniGPT-Pancreas: Multimodal Large Language Model for Pancreas Cancer Classification and Detection**</font>
 
-Elia Clement Nastasio, Andrea Moglia, Pietro Cerveri
-
 ## Getting Started
 ### Installation
 

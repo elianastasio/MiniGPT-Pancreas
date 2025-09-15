@@ -106,12 +106,9 @@ class RefAbd1kPancreasEvalData(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         data = self.loaded_data[idx]
         q_id = data['q_id']
-        #print("Elia: q_id:", q_id)
-        #image_name = data['image_name']
         image_name = data['slice_filename']
         slice_index = str(data['slice_index'])
         sent = data['sents']
-        #image_path = os.path.join(self.root_path, f'{img_name.replace('.nii.gz','_slice_'+slice_index+'_adjusted.jpg')}')
         image_path = os.path.join(self.root_path, f"{image_name}")
 
         image = Image.open(image_path).convert('RGB')
@@ -133,11 +130,9 @@ class RefMSDPancreasEvalData(torch.utils.data.Dataset):
         q_id = data['q_id']
         volume_name = str(data['volume_name'])
         slice_index = str(data['slice_index'])
-        #print("Elia: q_id:", q_id)
         image_name = f"{volume_name.strip('.nii.gz')}_slice_{slice_index}.png"
         
         sent = 'pancreas'
-        #image_path = os.path.join(self.root_path, f'{img_name.replace('.nii.gz','_slice_'+slice_index+'_adjusted.jpg')}')
         image_path = os.path.join(self.root_path, f"{image_name}")
 
         image = Image.open(image_path).convert('RGB')
@@ -157,17 +152,11 @@ class RefTCIAPancreasEvalData(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         data = self.loaded_data[idx]
         q_id = data['q_id']
-        #print('TCIA q_id: ',q_id)
-        #for key in data.keys():
-            #print(key)
         volume_name = str(data['volume_name'])
         slice_index = str(data['slice_index'])
         image_name = f"{volume_name.replace('label', 'PANCREAS_', 1)[:-7]}_slice_{slice_index}.png"
-        #image_name = f"{volume_name.strip('.nii.gz')}_slice_{slice_index}.png"
-        #image_name = data['image_name']
         
         sent = 'pancreas'
-        #image_path = os.path.join(self.root_path, f'{img_name.replace('.nii.gz','_slice_'+slice_index+'_adjusted.jpg')}')
         image_path = os.path.join(self.root_path, f"{image_name}")
 
         image = Image.open(image_path).convert('RGB')
@@ -189,11 +178,9 @@ class RefMSDTumorEvalData(torch.utils.data.Dataset):
         q_id = data['q_id']
         volume_name = str(data['volume_name'])
         slice_index = str(data['slice_index'])
-        #print("Elia: q_id:", q_id)
         image_name = f"{volume_name.strip('.nii.gz')}_slice_{slice_index}.png"
         
         sent = 'pancreatic tumor'
-        #image_path = os.path.join(self.root_path, f'{img_name.replace('.nii.gz','_slice_'+slice_index+'_adjusted.jpg')}')
         image_path = os.path.join(self.root_path, f"{image_name}")
 
         image = Image.open(image_path).convert('RGB')

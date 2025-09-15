@@ -56,11 +56,6 @@ class ReferSlakeDataset(Dataset):
     def preprocess(self, index):
         ref_id = self.ref_ids[index]
         ref = self.refer.loadRefs(ref_id)[0]
-
-        #print("Keys in ref dictionary:", ref.keys())#elia
-        #print("Elia, ref_id: ", ref['ref_id'])
-        #print("Elia, ann_id: ", ref['ann_id'])
-        #print("Elia, sentences: ", ref['sentences'])
         image_file = ref["ref_id"]
 
         image_path = os.path.join(self.vis_root, image_file)
@@ -72,8 +67,7 @@ class ReferSlakeDataset(Dataset):
         image_new_size = [100,100]
 
         #sample_sentence = random.choice(ref['sentences'])['raw']
-        sample_sentence = ref['sentences'][0]['sent']#eliamodifica
-        #print("Elia: sample_sentence: ", sample_sentence)#elia
+        sample_sentence = ref['sentences'][0]['sent']
 
         refer_sentence = self.text_processor(sample_sentence)
 
@@ -137,8 +131,6 @@ class SlakeDataset(VQADataset, __DisplMixin):
             image_path = os.path.join(self.vis_root, ann["img_name"])
             if os.path.exists(image_path) and ann["q_lang"] == "en":
                 exist_annotation.append(ann)
-            #else:#elia
-            #    raise FileNotFoundError(f"Image not found at path: {image_path}")#Elia
         self.annotation = exist_annotation
 
 
@@ -151,20 +143,8 @@ class SlakeDataset(VQADataset, __DisplMixin):
         image = self.vis_processor(image)
         question = self.text_processor(ann["question"])
         question_id = ann["qid"]
-
-        #answer_weight = {}
-        #for answer in ann["answer"]:
-        #    if answer in answer_weight.keys():
-        #        answer_weight[answer] += 1 / len(ann["answer"])
-        #    else:
-        #        answer_weight[answer] = 1 / len(ann["answer"])
-
-        #answers = list(answer_weight.keys())
-        #weights = list(answer_weight.values())
-
-        #answer = random.choices(answers, weights=weights, k=1)[0]  # random sample an answer according to weights
         answer = ann["answer"]
-        print("QID: ",question_id," ,answer: ", answer) #elia
+        print("QID: ",question_id," ,answer: ", answer) 
 
         return {
             "image": image,

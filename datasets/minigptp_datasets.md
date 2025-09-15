@@ -1,5 +1,14 @@
 ## Dataset Preparation for MiniGPT-Pancreas
 
+To preprocess the datasets used in this project, you can either run all scripts individually or run the full pipeline with a single command:
+
+```bash
+cd datasets
+python dataset_runner.py
+```
+
+**Important**: You still need to download and place the raw datasets in their respective folders according to the instructions in the first steps of each dataset section below. The runner script assumes the raw data is already in place.
+
 ### MSD_PANCREAS
 
 **1.** Download the MSD pancreas dataset from [Google Drive](https://drive.google.com/drive/folders/1HqEgzS8BV2c7xYNrZdEAnrHk7osJJ--2) (task 7)   
@@ -34,7 +43,19 @@ python NIH_save_slices.py          # to save slices as PNG images
 
 **1.** Execute the follwing scripts in order to prepare the image-text pairs
 ```bash
-cd datasets/TC/scripts
+cd datasets/TC/scripts          
 python TC_generate_jsons.py       # to generate JSON files for training and testing
 python TC_save_slices.py          # to save slices as PNG images
+```
+
+### AbdomenCT-1K
+
+**1.** Download the AbdomenCT-1K dataset by following the instructions [here](https://github.com/JunMa11/AbdomenCT-1K?tab=readme-ov-file). Place the 3 parts AbdomenCT-1K-ImagePart*.zip and the mask file (donwloadable from the same page as the third part) in datasets/ABD/raw_dataset.
+**2.** Extract the four files
+**3.** Execute the follwing scripts in order to prepare the image-text pairs
+```bash
+cd datasets/ABD/scripts
+python ABD_generate_slices_info.py # to extract info from 3D volumes
+python ABD_generate_jsons.py       # to generate JSON files for training and testing
+python ABD_save_slices.py          # to save slices as PNG images
 ```

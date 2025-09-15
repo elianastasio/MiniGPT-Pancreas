@@ -16,11 +16,6 @@ class VQADataset(BaseDataset):
     def __init__(self, vis_processor, text_processor, vis_root, ann_paths):
         super().__init__(vis_processor, text_processor, vis_root, ann_paths)
 
-'''
-class VQAEvalDataset(BaseDataset):
-    def __init__(self, vis_processor, text_processor, vis_root, ann_paths):
-        super().__init__(vis_processor, text_processor, vis_root, ann_paths)
-'''
 class TCEvalData(torch.utils.data.Dataset):
     def __init__(self, loaded_data, vis_processor, root_path):
         self.loaded_data = loaded_data
@@ -67,12 +62,9 @@ class VQARADEvalData(torch.utils.data.Dataset):
         elif dataset == "NIH":
             vol_idx = volume_name.replace("label", "").replace(".nii.gz", "")
             image_name = f"PANCREAS_{vol_idx}_slice_{slice_idx}.png"
-        #print("Elia: Keys in data:", data.keys())#elia
-        #img_name = ann['image_name']#elia: da img_id a qid
         question = ann['question']
         qid = ann['qid']
-        #img_file = '{}.jpg'.format(img_id) #elia: commentato
-        image_path = os.path.join(self.root_path, image_name)#elia: img_file to img_id
+        image_path = os.path.join(self.root_path, image_name)
         image = Image.open(image_path).convert('RGB')
         image = self.vis_processor(image)
         question = f"[vqa] Based on the image, respond to this question with a short answer: {question}"
