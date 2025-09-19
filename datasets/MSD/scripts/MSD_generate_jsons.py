@@ -12,10 +12,9 @@ def save_json(data, filename):
         json.dump(data, file, indent=4)
 
 # Split data into train and test sets based on volumes to avoid contamination between adjacent slices
-def split_volumes(data, test_ratio=0.2, seed=42):
+def split_volumes(data, test_ratio=0.2):
     
     # Group slices by volume
-    random.seed(seed)
     volumes = {}
     for item in data:
         volume_name = item["volume_name"]

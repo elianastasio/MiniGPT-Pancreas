@@ -20,8 +20,8 @@ def save_json(data, filename):
     with open(filename, 'w') as f:
         json.dump(data, f, indent=4)
 
-def split_volumes(volume_names, test_ratio=0.2, seed=42):
-    random.seed(seed)
+def split_volumes(volume_names, test_ratio=0.2):
+    #random.seed(42)
     shuffled = volume_names[:]
     random.shuffle(shuffled)
     test_size = int(len(shuffled) * test_ratio)
@@ -73,8 +73,8 @@ def balance_entries_overall(entries):
             balanced_entries.extend(lst)
     return balanced_entries
 
-def process_abd_splits_balanced(input_json, threshold=0.6, seed=42):
-    random.seed(seed)
+def process_abd_splits_balanced(input_json, threshold=0.6):
+    #random.seed(42)
     data = load_json(input_json)
 
     # Only consider volumes present in Masks folder
@@ -89,7 +89,7 @@ def process_abd_splits_balanced(input_json, threshold=0.6, seed=42):
         volumes_dict.setdefault(vol_name, []).append(item)
 
     volume_names = list(volumes_dict.keys())
-    train_volumes, test_volumes = split_volumes(volume_names, test_ratio=0.2, seed=seed)
+    train_volumes, test_volumes = split_volumes(volume_names, test_ratio=0.2)
 
     print("Generating train entries...")
     train_entries = generate_entries(train_volumes, volumes_dict, threshold)

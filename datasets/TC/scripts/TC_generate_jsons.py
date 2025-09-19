@@ -2,8 +2,7 @@ import json
 import random
 import os
 
-# Set a random seed for reproducibility
-random.seed(42)
+#random.seed(42)
 
 # Input file paths
 msd_test_path = "../../MSD/annotations/MSD_tumor_test.json"
